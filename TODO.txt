@@ -1,9 +1,68 @@
-
-
-
 ### GOAL
-I want to build a python program (using AI/ML/Stats) to find probabilities of someone saying a certain word 
-in a certain context. there are prediction markets for fomc press conferences and earnings calls i would like 
-to utilize this model for. please assist me in building the model in python. ideally it would take the pdf 
-transcripts of previous examples into its context and then extrapolate off that with specific “current events” 
-related modifiers 
+I want to build a python program (using AI/ML/Stats) to find probabilities of someone saying a certain word
+in a certain context. there are prediction markets for FOMC press conferences and earnings calls I would like
+to utilize this model for. Ideally it would take the PDF transcripts of previous examples into its context
+and then extrapolate off that with specific "current events" related modifiers.
+
+### PROJECT MILESTONES
+1. **Historical data pipeline (PM1 – Data & Knowledge Base Lead)**
+   - Inventory and obtain PDF transcripts for past FOMC press conferences and representative earnings calls.
+   - Coordinate PDF ingestion tooling (e.g., `pdfplumber`/`pypdf`) and ensure storage with consistent metadata: event type, date, speaker(s), and file provenance.
+   - Establish standardized preprocessing: remove headers/footers, normalize speaker labels, and fix whitespace or encoding issues.
+   - Define segmentation rules (speaker turns or fixed-length windows) and produce cleaned, segmented text artifacts ready for labeling.
+   - Publish a structured dataset (Parquet/Arrow) containing segment text, contextual metadata, and target-word labels, along with data validation checks and versioning notes.
+   - Maintain change logs and provide downstream access for PM2 and PM3.
+2. **Modeling baseline (PM2 – Modeling & Baseline Experiments Lead)**
+   - Implement baseline text features (TF–IDF) and tabular encodings for categorical metadata provided by PM1.
+   - Prototype semantic embedding features (e.g., sentence transformers) in a modular way for future upgrades.
+   - Train interpretable probabilistic models (logistic regression, gradient boosting) with time-aware validation (rolling or leave-one-event-out) to avoid temporal leakage.
+   - Calibrate model outputs (isotonic regression or Platt scaling) and document performance metrics, feature importances, and calibration curves.
+   - Configure experiment tracking (MLflow/W&B or YAML configs) to capture hyperparameters, dataset versions, and evaluation results.
+   - Prepare handoff artifacts: trained vectorizers, model checkpoints, and evaluation scripts for PM3.
+3. **Current-events integration & deployment (PM3 – Current-Events Integration & Deployment Lead)**
+   - Identify, source, and preprocess external "current events" indicators (macro releases, market sentiment, topical news signals) keyed by event date.
+   - Collaborate with PM2 to encode these modifiers as numeric/categorical features compatible with the modeling pipeline.
+   - Own post-model calibration on recent hold-out windows and monitor for drift.
+   - Design and implement the inference workflow (CLI/REST) to ingest the latest context, apply modifiers, and emit probability reports with confidence intervals.
+   - Define alerting/reporting mechanisms (dashboards, scheduled summaries) highlighting probability shifts and model confidence.
+   - Draft deployment documentation, monitoring playbooks, and escalation paths for operational readiness.
+
+### CROSS-TEAM GUIDELINES
+- Maintain shared data schemas, metadata standards, and version logs to prevent drift between teams.
+- Document assumptions, validation splits, feature definitions, and preprocessing steps for reproducibility.
+- Schedule weekly cross-PM syncs to review dataset status, experiment outcomes, integration blockers, and roadmap adjustments.
+- Encourage early feedback loops: PM2 validates data quality with PM1; PM3 stress-tests model outputs using live scenarios with PM2.
+- Track model/data changes in a central change log covering corpus updates, feature revisions, calibration changes, and deployment updates.
+- Keep experiment configs, scripts, and notebooks under version control with clear README instructions for setup and execution.
+
+### STEP-BY-STEP EXECUTION PLAN
+1. **Corpus assembly & preprocessing (Weeks 1–2)**
+   - PM1 gathers PDFs, extracts text, normalizes, and segments transcripts; performs quality checks and labels target word occurrences.
+   - Deliverable: Clean segmented dataset with metadata and initial label distributions.
+2. **Feature engineering & baseline modeling (Weeks 2–4)**
+   - PM2 consumes PM1 dataset, builds TF–IDF baseline, integrates categorical features, and sets up experiment tracking.
+   - Run time-aware validation, evaluate Brier/log-loss, and calibrate baseline outputs.
+   - Deliverable: Baseline model package with calibration report and feature importance summary.
+3. **Current events enrichment & deployment planning (Weeks 3–5)**
+   - PM3 sources external indicators, aligns them with event dates, and collaborates with PM2 to integrate into the modeling pipeline.
+   - Design inference workflow, including CLI interface and reporting templates; draft monitoring strategy.
+   - Deliverable: End-to-end scoring prototype producing probabilities with modifier-driven adjustments.
+4. **Integration & refinement (Weeks 5–6)**
+   - Joint dry runs using recent events; validate data freshness, feature pipelines, and calibration stability.
+   - Iterate on feature contributions, update documentation, and finalize deployment roadmap.
+   - Deliverable: Release candidate pipeline ready for operational hand-off.
+
+### INITIAL TASK BACKLOG
+- **PM1**
+  1. Compile a list of available FOMC press conference and earnings call transcript sources with download links and licensing notes.
+  2. Prototype PDF text extraction on 2–3 transcripts to finalize preprocessing heuristics and segmentation strategy.
+  3. Define the metadata schema (columns, data types, validation rules) and share with PM2/PM3 for feedback.
+- **PM2**
+  1. Set up the experiment tracking environment (select tool, create template config, define metrics).
+  2. Draft baseline feature pipeline code structure (vectorizer, scaler, model wrapper) using synthetic data placeholders.
+  3. Collaborate with PM1 to review sample labeled segments and confirm target labeling conventions.
+- **PM3**
+  1. Identify candidate current-event datasets (economic calendars, market sentiment feeds) and document access methods.
+  2. Outline the inference workflow (inputs, processing steps, outputs) and gather requirements for CLI/REST interface.
+  3. Define monitoring KPIs (prediction drift, calibration decay) and propose alert thresholds.
+
