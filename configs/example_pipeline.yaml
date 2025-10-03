@@ -1,0 +1,19 @@
+# Example configuration for the historical transcript data pipeline.
+inventory_path: ../data/inventory.csv
+pdf_directory: ../data/pdfs
+output_directory: ../data/processed
+
+target_words:
+  - inflation
+  - rate hike
+
+segmentation:
+  mode: speaker_turn
+  # For fixed-window segmentation, provide window_size and optional stride.
+  # window_size: 200
+  # stride: 150
+
+# Optional metadata overrides keyed by event_id. These values merge with the inventory entries.
+metadata_overrides:
+  SAMPLE_EVENT_2020:
+    speakers: "Jerome Powell, John Doe"

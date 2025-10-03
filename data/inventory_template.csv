@@ -1,0 +1,2 @@
+event_id,event_type,event_date,speakers,pdf_file,source_url,provenance
+SAMPLE_EVENT_2020,fomc_press_conference,2020-03-15,"Jerome Powell",sample_event_2020.pdf,https://www.federalreserve.gov,Public domain
