@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.pyd
+*.DS_Store
+
+# Pipeline outputs
+data/processed/
+
+# Local transcripts
+# (PDFs are referenced via inventory but not committed)
+data/pdfs/
+
+# Build artifacts
+*.parquet
+
