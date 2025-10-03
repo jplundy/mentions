@@ -1,0 +1,54 @@
+# Example configuration for baseline modeling
+# Update dataset_path to point at your prepared training table.
+target_column: label
+dataset_path: data/mentions_baseline.csv
+
+text:
+  column: text
+  max_features: 20000
+  ngram_range: [1, 2]
+  min_df: 2
+  max_df: 0.95
+  stop_words: english
+
+tabular:
+  categorical: [category, source]
+  numeric: [event_hour]
+  categorical_impute: most_frequent
+  numeric_impute: median
+
+embedding:
+  enabled: false
+
+calibration:
+  method: isotonic
+  cv: 3
+
+validation:
+  strategy: rolling
+  time_column: published_at
+  min_train_size: 200
+  test_window_size: 50
+  step_size: 25
+  holdout_ratio: 0.1
+
+models:
+  - name: logistic_baseline
+    type: logistic_regression
+    params:
+      C: 1.0
+      class_weight: balanced
+  - name: gradient_boosting
+    type: gradient_boosting
+    params:
+      learning_rate: 0.05
+      max_depth: 5
+      max_iter: 300
+
+output:
+  output_dir: artifacts/baseline
+  model_filename: model.joblib
+  vectorizer_filename: vectorizer.joblib
+  metrics_filename: metrics.json
+  calibration_filename: calibration.csv
+  importances_filename: feature_importances.csv
