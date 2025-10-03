@@ -1,0 +1,9 @@
+
+
+
+### GOAL
+I want to build a python program (using AI/ML/Stats) to find probabilities of someone saying a certain word 
+in a certain context. there are prediction markets for fomc press conferences and earnings calls i would like 
+to utilize this model for. please assist me in building the model in python. ideally it would take the pdf 
+transcripts of previous examples into its context and then extrapolate off that with specific “current events” 
+related modifiers 
