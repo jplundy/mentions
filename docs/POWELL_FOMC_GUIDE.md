@@ -75,6 +75,7 @@ The process has three stages:
     create boolean columns named `target__<slug>` for each entry.
   - Set `segmentation.mode` to `speaker_turn` (default) or `fixed_window` to match the
     keys expected by `pipeline/config.py`.
+
    - Use the `metadata_overrides` block if you need to correct speaker names or add
      additional columns before modeling.
 
