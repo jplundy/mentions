@@ -1,0 +1,100 @@
+# Baseline Modeling Architecture
+
+This document summarizes the refactored modeling framework responsible for the PM2
+milestones defined in `TODO.txt`. The design focuses on modular feature extraction,
+time-aware validation, calibrated probabilistic models, and lightweight experiment
+tracking so that future teams can extend or replace components without rewriting the
+entire stack.
+
+## Package layout
+
+```
+modeling/
+├── __init__.py              # Public entry points (config + experiment runner)
+├── calibration.py           # Output calibration helpers and diagnostics
+├── config.py                # YAML-backed dataclasses that describe experiments
+├── evaluation.py            # Common metrics and feature importance utilities
+├── experiments.py           # BaselineExperiment orchestrator
+├── features/
+│   ├── base.py              # Shared interfaces for modular feature blocks
+│   ├── metadata.py          # Categorical metadata encoders
+│   └── text.py              # TF–IDF and sentence-transformer features
+├── models.py                # Estimator factory for interpretable models
+├── pipeline.py              # ColumnTransformer assembly helpers
+├── tracking.py              # YAML/JSON logging with optional MLflow integration
+└── validation.py            # Rolling and leave-one-event-out splitters
+```
+
+The `model.py` CLI loads an `ExperimentConfig`, instantiates `BaselineExperiment`,
+and prints aggregate metrics. Artifacts (trained pipeline, calibration diagnostics,
+metrics) are emitted into the configured tracking directory.
+
+## Feature engineering
+
+- **TF–IDF baseline** – `TfidfTextBlock` exposes tunable parameters (n-grams, limits,
+document frequency bounds) through the configuration YAML. The block plugs into a
+`ColumnTransformer` so additional preprocessing stages can be registered later.
+- **Categorical metadata** – `CategoricalMetadataBlock` one-hot encodes inventory
+columns such as `event_type` or `speaker`, with graceful fallbacks for different
+scikit-learn versions.
+- **Semantic embeddings** – `SentenceTransformerBlock` wraps models from the
+[`sentence-transformers`](https://www.sbert.net/) library with lazy loading. Users
+can enable embeddings by toggling `feature.include_embeddings` and setting the
+`embedding_params` dictionary.
+
+All feature blocks inherit from `FeatureBlock`, ensuring that future encoders (e.g.,
+current-events numeric features) follow the same interface.
+
+## Models and validation
+
+Two interpretable probabilistic estimators are supported:
+
+1. **Logistic regression** with class weighting and configurable regularization.
+2. **Gradient boosting** (`GradientBoostingClassifier`) tuned for calibration stability.
+
+`validation.py` implements:
+
+- Rolling splits keyed by chronological order, guaranteeing a minimum number of
+  training events before evaluations.
+- Leave-one-event-out splits grouped by `event_id`, preventing temporal leakage
+  across press conferences or earnings calls.
+
+Metrics include log-loss, Brier score, ROC-AUC, average precision, F1, precision,
+recall, and accuracy. Feature importances or coefficients are surfaced when available
+and stored alongside results.
+
+## Calibration and diagnostics
+
+`calibration.calibrate_model` supports isotonic regression, Platt scaling (sigmoid),
+or no-op calibration. The resulting Brier score, log-loss, and calibration curve
+points are persisted to `calibration.json`, enabling PM3 to monitor drift or retrain
+calibrators.
+
+## Experiment tracking
+
+`ExperimentTracker` persists:
+
+- The resolved configuration (`config.yaml`).
+- Fold-level metrics (`fold_<k>_metrics.json`).
+- Aggregate summaries and feature importances.
+- Serialized pipelines (`baseline_pipeline.joblib`).
+
+MLflow logging can be activated via `tracking.use_mlflow`. When disabled, all
+artifacts remain on disk in a self-contained directory suitable for handoffs.
+
+## Running an experiment
+
+1. Copy `configs/example_experiment.yaml` and update dataset path, target column,
+   and feature selections.
+2. Execute:
+
+   ```bash
+   python model.py configs/your_experiment.yaml --output experiments/run_<timestamp>
+   ```
+
+3. Inspect the generated directory for metrics, calibration curves, and the trained
+   pipeline ready for PM3 integration.
+
+The refactored design isolates configuration, feature pipelines, validation logic,
+and experiment tracking so that researchers can iterate rapidly while keeping
+artifacts reproducible and auditable.
