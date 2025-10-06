@@ -1,0 +1,27 @@
+inventory_path: ../data/powell_fomc_inventory.csv
+pdf_directory: ../data/pdfs
+output_directory: ../data/derivatives/powell_fomc
+target_words:
+  - credit
+  - pandemic
+  - obvious
+  - recession
+  - volatility
+  - median
+  - tax
+  - restrictive
+  - "goods inflation"
+  - "balance sheet"
+  - growth
+  - "balance of risk"
+  - probability
+  - pardon
+  - anchor
+  - gold
+  - bitcoin
+  - "national debt"
+  - "soft landing"
+  - "trade war"
+  - "yield curve"
+segmentation:
+  strategy: speaker_turn

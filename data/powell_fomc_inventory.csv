@@ -1,0 +1,16 @@
+event_id,event_type,event_date,speakers,pdf_file,source_url,provenance
+FOMC_JAN2024,fomc_press_conference,2024-01-31,"Jerome Powell",FOMCpresconf20240131.pdf,https://www.federalreserve.gov,Public domain
+FOMC_MAR2024,fomc_press_conference,2024-03-20,"Jerome Powell",FOMCpresconf20240320.pdf,https://www.federalreserve.gov,Public domain
+FOMC_MAY2024,fomc_press_conference,2024-05-01,"Jerome Powell",FOMCpresconf20240501.pdf,https://www.federalreserve.gov,Public domain
+FOMC_JUN2024,fomc_press_conference,2024-06-12,"Jerome Powell",FOMCpresconf20240612.pdf,https://www.federalreserve.gov,Public domain
+FOMC_JUL2024,fomc_press_conference,2024-07-31,"Jerome Powell",FOMCpresconf20240731.pdf,https://www.federalreserve.gov,Public domain
+FOMC_SEP2024,fomc_press_conference,2024-09-18,"Jerome Powell",FOMCpresconf20240918.pdf,https://www.federalreserve.gov,Public domain
+FOMC_NOV2024,fomc_press_conference,2024-11-07,"Jerome Powell",FOMCpresconf20241107.pdf,https://www.federalreserve.gov,Public domain
+FOMC_DEC2024,fomc_press_conference,2024-12-18,"Jerome Powell",FOMCpresconf20241218.pdf,https://www.federalreserve.gov,Public domain
+FOMC_JAN2025,fomc_press_conference,2025-01-29,"Jerome Powell",FOMCpresconf20250129.pdf,https://www.federalreserve.gov,Public domain
+FOMC_MAR2025,fomc_press_conference,2025-03-19,"Jerome Powell",FOMCpresconf20250319.pdf,https://www.federalreserve.gov,Public domain
+FOMC_MAY2025,fomc_press_conference,2025-05-07,"Jerome Powell",FOMCpresconf20250507.pdf,https://www.federalreserve.gov,Public domain
+FOMC_JUN2025,fomc_press_conference,2025-06-18,"Jerome Powell",FOMCpresconf20250618.pdf,https://www.federalreserve.gov,Public domain
+FOMC_JUL2025,fomc_press_conference,2025-07-30,"Jerome Powell",FOMCpresconf20250730.pdf,https://www.federalreserve.gov,Public domain
+FOMC_SEP2025,fomc_press_conference,2025-09-17,"Jerome Powell",FOMCpresconf20250917.pdf,https://www.federalreserve.gov,Public domain
+JACKSONHOLE_AUG2025,jackson_hole_speech,2025-08-22,"Jerome Powell",powell20250822.pdf,https://www.federalreserve.gov,Public domain
