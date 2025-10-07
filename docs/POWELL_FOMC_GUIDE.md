@@ -66,12 +66,16 @@ The process has three stages:
    target_words:
      - powell
      - "chair powell"
+     - credit
    segmentation:
-     strategy: speaker_turn
+     mode: speaker_turn
    ```
 
-   - Add as many phrases to `target_words` as you wish to monitor. The pipeline will
-     create boolean columns named `target__<slug>` for each entry.
+  - Add as many phrases to `target_words` as you wish to monitor. The pipeline will
+    create boolean columns named `target__<slug>` for each entry.
+  - Set `segmentation.mode` to `speaker_turn` (default) or `fixed_window` to match the
+    keys expected by `pipeline/config.py`.
+
    - Use the `metadata_overrides` block if you need to correct speaker names or add
      additional columns before modeling.
 
@@ -98,7 +102,7 @@ The process has three stages:
 
    ```yaml
    dataset_path: ../data/derivatives/powell_fomc/segments_powell_v1.parquet
-   target_column: target__powell
+   target_column: target__powell  # swap to target__credit for the forecast in Section 6
    feature:
      text:
        column: text
@@ -162,7 +166,80 @@ The process has three stages:
 3. Use the calibration report (Brier score, log-loss) to assess whether additional
    features (e.g., embeddings or macro indicators) are needed before deployment.
 
-## 6. Score new Powell FOMC scenarios
+## 6. Worked example: forecasting "credit" for the next press conference
+
+Following is a concrete recipe for estimating the probability that Powell will utter
+the word "credit" during the next press conference.
+
+1. **Regenerate the historical dataset with the `credit` target.** Ensure the
+   `target_words` block in the pipeline configuration contains `credit` as shown in
+   Section 3, then rerun the pipeline command from Section 3.3. The resulting dataset
+   will include a `target__credit` column that marks speaker turns where Powell said
+   the word "credit" in the past.
+2. **Train a calibrated classifier on the `target__credit` column.** Update the
+   experiment configuration's `target_column` to `target__credit` (Section 4) and run
+   the modeling command in Section 5.1. The saved
+   `experiments/powell_baseline/baseline_pipeline.joblib` artifact now outputs
+   probabilities for the "credit" target specifically.
+3. **Summarize the historical base rate.** A quick event-level prior for the next
+   conference is the share of past Powell events that contained at least one "credit"
+   mention:
+
+   ```python
+   import pandas as pd
+
+   segments = pd.read_parquet("data/derivatives/powell_fomc/segments_powell_v1.parquet")
+   base_rate = (
+       segments.groupby("event_id")["target__credit"].max().mean()
+   )
+   print(f"Historical P(mentions credit ≥1x): {base_rate:.3f}")
+   ```
+
+   This prior is useful when you lack strong assumptions about the upcoming remarks.
+4. **Create candidate segments for the forthcoming event.** Draft a small set of
+   hypothetical speaker turns that reflect potential themes (e.g., prepared remarks,
+   questions on banking conditions) and populate the required metadata columns. The
+   textual content should mirror the tone or topics you expect Powell to cover so the
+   model can evaluate their similarity to past "credit" mentions.
+5. **Score the candidate segments with the calibrated pipeline.**
+
+   ```python
+   import joblib
+   import pandas as pd
+   import numpy as np
+
+   pipeline = joblib.load("experiments/powell_baseline/baseline_pipeline.joblib")
+
+   candidate_segments = pd.DataFrame([
+       {
+           "event_id": "fomc_2024_05_forecast",
+           "event_type": "fomc_press_conference",
+           "speaker": "Jerome Powell",
+           "text": "Credit conditions remain tight, but the banking system is sound.",
+       },
+       {
+           "event_id": "fomc_2024_05_forecast",
+           "event_type": "fomc_press_conference",
+           "speaker": "Jerome Powell",
+           "text": "We continue to monitor financial markets and lending trends closely.",
+       },
+   ])
+
+   segment_probs = pipeline.predict_proba(candidate_segments)[:, 1]
+   # Probability Powell says "credit" at least once across the segments
+   event_probability = 1 - float(np.prod(1 - segment_probs))
+   print(event_probability)
+   ```
+
+   The `event_probability` combines the segment-level predictions under the
+   assumption that the hypothetical turns represent distinct opportunities for Powell
+   to mention "credit". Adjust the scenarios and aggregation logic as needed.
+6. **Refresh the estimate after the conference.** Replace the hypothetical turns with
+   the actual transcript, rerun the scoring code, and update your probability models
+   by appending the new event to the historical dataset and retraining as described in
+   Section 5.
+
+## 7. Score additional Powell FOMC scenarios
 
 1. Load the trained pipeline in a Python session:
 
@@ -205,7 +282,7 @@ The process has three stages:
    your dataset, rerun the historical pipeline with a new `--version`, and retrain or
    recalibrate the model to keep probabilities current.
 
-## 7. Next steps and enhancements
+## 8. Next steps and enhancements
 
 - Incorporate `SentenceTransformerBlock` embeddings by setting
   `include_embeddings: true` in the experiment config for richer semantic context.
