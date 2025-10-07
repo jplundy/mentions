@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import joblib
 import pandas as pd
@@ -56,8 +56,7 @@ class BaselineExperiment:
         """Execute the configured experiment."""
 
         df = self.load_dataset()
-        X = df
-        y = df[self.config.target_column].astype(int)
+        X, y = self._prepare_features_and_target(df)
         validator = build_validator(self.config.validation)
 
         fold_results: List[FoldResult] = []
@@ -112,6 +111,22 @@ class BaselineExperiment:
 
         self.tracker.log_fold(fold_result)
         return fold_result
+
+    def _prepare_features_and_target(
+        self, df: pd.DataFrame
+    ) -> Tuple[pd.DataFrame, pd.Series]:
+        """Filter invalid targets and return aligned features and labels."""
+
+        target = df[self.config.target_column]
+        missing_mask = target.isna()
+        if missing_mask.any():
+            df = df.loc[~missing_mask].copy()
+            target = df[self.config.target_column]
+        if df.empty:
+            raise ValueError(
+                "No rows with a valid target value remain after filtering missing targets."
+            )
+        return df, target.astype(int)
 
     def _train_final_pipeline(self, X: pd.DataFrame, y: pd.Series) -> None:
         """Train the final calibrated pipeline on the full dataset."""
