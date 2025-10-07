@@ -1,0 +1,28 @@
+{
+  "version": "nflx_v2",
+  "generated_at": "20251007T023757Z",
+  "num_rows": 252,
+  "validation": {
+    "checks": {
+      "unique_segment_ids": false,
+      "non_empty_text": true
+    },
+    "notes": []
+  },
+  "target_columns": {
+    "revenue": "target__revenue",
+    "engagement": "target__engagement",
+    "acquisition": "target__acquisition",
+    "live event": "target__live_event",
+    "subscriber": "target__subscriber",
+    "guidance": "target__guidance",
+    "competition": "target__competition",
+    "profitable": "target__profitable",
+    "gaming": "target__gaming",
+    "ad supported": "target__ad_supported",
+    "price change": "target__price_change",
+    "partnership": "target__partnership",
+    "hollywood": "target__hollywood",
+    "churn": "target__churn"
+  }
+}

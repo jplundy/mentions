@@ -1,4 +1,4 @@
-dataset_path: data/derivatives/nflx/segments_nflx_v1.parquet
+dataset_path: data/derivatives/nflx/segments_nflx_v2.parquet
 target_column: target__guidance
 feature:
   text:
