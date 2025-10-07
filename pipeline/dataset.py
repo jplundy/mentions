@@ -8,7 +8,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Pattern, Sequence, Set
 
 try:  # pragma: no cover - optional dependency
     import pandas as pd
@@ -57,6 +57,7 @@ class DatasetPublisher:
         self.target_words = [word for word in self.target_words]
         mapping = {}
         seen_columns = set()
+        patterns = {}
         for word in self.target_words:
             column = self._target_column_name(word)
             if column in seen_columns:
@@ -65,7 +66,9 @@ class DatasetPublisher:
                 )
             mapping[word] = column
             seen_columns.add(column)
+            patterns[word] = _compile_target_pattern(word)
         self._target_mapping = mapping
+        self._target_patterns = patterns
 
     def _segment_rows(
         self, record: TranscriptRecord, segments: Iterable[Segment]
@@ -74,10 +77,15 @@ class DatasetPublisher:
         target_pairs = [(word, word.lower()) for word in self.target_words]
         for segment in segments:
             text_lower = segment.text.lower()
-            target_hits = {
-                self._target_mapping[original]: lower in text_lower
-                for original, lower in target_pairs
-            }
+        target_hits = {}
+        for original, lower in target_pairs:
+            pattern = self._target_patterns.get(original)
+            matched = False
+            if pattern is not None:
+                matched = bool(pattern.search(segment.text))
+            else:
+                matched = lower in text_lower
+            target_hits[self._target_mapping[original]] = matched
             row = {
                 "event_id": record.event_id,
                 "segment_id": segment.segment_id,
@@ -154,3 +162,119 @@ class DatasetPublisher:
         if not normalized:
             normalized = "term"
         return f"target__{normalized}"
+APOSTROPHES = ("'", "’")
+
+
+def _compile_target_pattern(term: str) -> Optional[Pattern[str]]:
+    """Compile a regular expression that matches the target term.
+
+    The generated pattern adheres to the contract rules for payout criteria:
+
+    * Includes plural and possessive forms (e.g., "immigrant" -> "immigrants", "immigrant's").
+    * Excludes tense inflections by only modelling plural/possessive endings.
+    * Allows hyphenated or compound usages while preventing closed compounds that subsume the
+      target (e.g., "fire station" counts but "firetruck" does not).
+    * Handles ordinals for numeric tokens (e.g., "January 6" -> "January 6th").
+    * Supports slash-delimited alternatives (e.g., "Elon / Musk" -> matches either "Elon" or
+      "Musk").
+    """
+
+    alternatives = _split_alternatives(term)
+    patterns: List[str] = []
+    for alternative in alternatives:
+        tokens = _tokenize_phrase(alternative)
+        if not tokens:
+            continue
+        token_patterns = [_token_pattern(token) for token in tokens]
+        if not all(token_patterns):
+            continue
+        phrase_pattern = token_patterns[0]
+        for token_pattern in token_patterns[1:]:
+            phrase_pattern += _separator_pattern()
+            phrase_pattern += token_pattern
+        patterns.append(f"(?<!\\w){phrase_pattern}(?!\\w)")
+
+    if not patterns:
+        stripped = term.strip()
+        if not stripped:
+            return None
+        # Fallback to a simple substring search as a last resort.
+        escaped = re.escape(stripped)
+        return re.compile(escaped, re.IGNORECASE)
+
+    combined = "|".join(patterns)
+    return re.compile(combined, re.IGNORECASE)
+
+
+def _split_alternatives(term: str) -> Sequence[str]:
+    if not term:
+        return []
+    parts = [part.strip() for part in re.split(r"\s*/\s*", term) if part.strip()]
+    return parts or [term.strip()]
+
+
+def _tokenize_phrase(phrase: str) -> Sequence[str]:
+    return [token for token in phrase.split() if token]
+
+
+def _separator_pattern() -> str:
+    # Allow whitespace, hyphenated, or dash-separated compounds between tokens.
+    return r"(?:\s+|\s*[-‐‑–—]\s*)"
+
+
+def _token_pattern(token: str) -> str:
+    token = token.strip()
+    if not token:
+        return ""
+    if re.fullmatch(r"\d+", token):
+        return rf"{re.escape(token)}(?:st|nd|rd|th)?"
+    if re.fullmatch(r"[A-Za-z]+", token):
+        variants = _word_variants(token)
+        escaped = sorted({re.escape(variant) for variant in variants}, key=len, reverse=True)
+        return "(?:" + "|".join(escaped) + ")"
+    return re.escape(token)
+
+
+def _word_variants(word: str) -> Set[str]:
+    lowercase = word.lower()
+    singular_forms = {lowercase}
+    plural_forms = _plural_forms(lowercase)
+    forms = set(singular_forms)
+    forms.update(plural_forms)
+
+    for apostrophe in APOSTROPHES:
+        for singular in singular_forms:
+            forms.add(singular + apostrophe + "s")
+            if singular.endswith("s"):
+                forms.add(singular + apostrophe)
+        for plural in plural_forms:
+            if plural.endswith("s"):
+                forms.add(plural + apostrophe)
+
+    return forms
+
+
+def _plural_forms(word: str) -> Set[str]:
+    forms: Set[str] = set()
+    if not word:
+        return forms
+
+    forms.add(word + "s")
+
+    if re.search(r"(s|x|z|ch|sh)$", word):
+        forms.add(word + "es")
+    if re.search(r"[^aeiou]y$", word):
+        forms.add(word[:-1] + "ies")
+    if word.endswith("f"):
+        forms.add(word[:-1] + "ves")
+        forms.add(word + "s")
+    if word.endswith("fe"):
+        forms.add(word[:-2] + "ves")
+    if word.endswith("us"):
+        forms.add(word[:-2] + "i")
+    if word.endswith("is"):
+        forms.add(word[:-2] + "es")
+    if word.endswith("o"):
+        forms.add(word + "es")
+
+    return forms
