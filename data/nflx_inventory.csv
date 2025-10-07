@@ -1,0 +1,19 @@
+event_id,event_type,event_date,speakers,pdf_file,source_url,provenance
+1Q21_EARNINGS,earnings_call,2021-03-31,"Netflix Management",NFLX-1Q21.pdf,https://www.netflix.com,Public domain
+2Q21_EARNINGS,earnings_call,2021-06-30,"Netflix Management",NFLX-2Q21.pdf,https://www.netflix.com,Public domain
+3Q21_EARNINGS,earnings_call,2021-09-30,"Netflix Management",NFLX-3Q21.pdf,https://www.netflix.com,Public domain
+4Q21_EARNINGS,earnings_call,2021-12-31,"Netflix Management",NFLX-4Q21.pdf,https://www.netflix.com,Public domain
+1Q22_EARNINGS,earnings_call,2022-03-31,"Netflix Management",NFLX-1Q22.pdf,https://www.netflix.com,Public domain
+2Q22_EARNINGS,earnings_call,2022-06-30,"Netflix Management",NFLX-2Q22.pdf,https://www.netflix.com,Public domain
+3Q22_EARNINGS,earnings_call,2022-09-30,"Netflix Management",NFLX-3Q22.pdf,https://www.netflix.com,Public domain
+4Q22_EARNINGS,earnings_call,2022-12-31,"Netflix Management",NFLX-4Q22.pdf,https://www.netflix.com,Public domain
+1Q23_EARNINGS,earnings_call,2023-03-31,"Netflix Management",NFLX-1Q23.pdf,https://www.netflix.com,Public domain
+2Q23_EARNINGS,earnings_call,2023-06-30,"Netflix Management",NFLX-2Q23.pdf,https://www.netflix.com,Public domain
+3Q23_EARNINGS,earnings_call,2023-09-30,"Netflix Management",NFLX-3Q23.pdf,https://www.netflix.com,Public domain
+4Q23_EARNINGS,earnings_call,2023-12-31,"Netflix Management",NFLX-4Q23.pdf,https://www.netflix.com,Public domain
+1Q24_EARNINGS,earnings_call,2024-03-31,"Netflix Management",NFLX-1Q24.pdf,https://www.netflix.com,Public domain
+2Q24_EARNINGS,earnings_call,2024-06-30,"Netflix Management",NFLX-2Q24.pdf,https://www.netflix.com,Public domain
+3Q24_EARNINGS,earnings_call,2024-09-30,"Netflix Management",NFLX-3Q24.pdf,https://www.netflix.com,Public domain
+4Q24_EARNINGS,earnings_call,2024-12-31,"Netflix Management",NFLX-4Q24.pdf,https://www.netflix.com,Public domain
+1Q25_EARNINGS,earnings_call,2025-03-31,"Netflix Management",NFLX-1Q25.pdf,https://www.netflix.com,Public domain
+2Q25_EARNINGS,earnings_call,2025-06-30,"Netflix Management",NFLX-2Q25.pdf,https://www.netflix.com,Public domain

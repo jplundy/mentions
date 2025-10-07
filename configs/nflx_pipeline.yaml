@@ -1,0 +1,20 @@
+inventory_path: ../data/nflx_inventory.csv
+pdf_directory: ../data/pdfs
+output_directory: ../data/derivatives/nflx
+target_words:
+  - revenue
+  - engagement
+  - acquisition
+  - "live event"
+  - subscriber
+  - guidance
+  - competition
+  - profitable
+  - gaming
+  - "ad supported"
+  - "price change"
+  - partnership
+  - hollywood
+  - churn
+segmentation:
+  mode: speaker_turn

@@ -2,6 +2,8 @@ inventory_path: ../data/powell_fomc_inventory.csv
 pdf_directory: ../data/pdfs
 output_directory: ../data/derivatives/powell_fomc
 target_words:
+  - powell
+  - "chair powell"
   - credit
   - pandemic
   - obvious
@@ -23,5 +25,9 @@ target_words:
   - "soft landing"
   - "trade war"
   - "yield curve"
+  - data
+  - "good afternoon"
+  - expectation
+  - projection
 segmentation:
-  strategy: speaker_turn
+  mode: speaker_turn

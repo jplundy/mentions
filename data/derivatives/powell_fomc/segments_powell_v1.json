@@ -1,0 +1,41 @@
+{
+  "version": "powell_v1",
+  "generated_at": "20251006T040121Z",
+  "num_rows": 657,
+  "validation": {
+    "checks": {
+      "unique_segment_ids": true,
+      "non_empty_text": true
+    },
+    "notes": []
+  },
+  "target_columns": {
+    "powell": "target__powell",
+    "chair powell": "target__chair_powell",
+    "credit": "target__credit",
+    "pandemic": "target__pandemic",
+    "obvious": "target__obvious",
+    "recession": "target__recession",
+    "volatility": "target__volatility",
+    "median": "target__median",
+    "tax": "target__tax",
+    "restrictive": "target__restrictive",
+    "goods inflation": "target__goods_inflation",
+    "balance sheet": "target__balance_sheet",
+    "growth": "target__growth",
+    "balance of risk": "target__balance_of_risk",
+    "probability": "target__probability",
+    "pardon": "target__pardon",
+    "anchor": "target__anchor",
+    "gold": "target__gold",
+    "bitcoin": "target__bitcoin",
+    "national debt": "target__national_debt",
+    "soft landing": "target__soft_landing",
+    "trade war": "target__trade_war",
+    "yield curve": "target__yield_curve",
+    "data": "target__data",
+    "good afternoon": "target__good_afternoon",
+    "expectation": "target__expectation",
+    "projection": "target__projection"
+  }
+}
