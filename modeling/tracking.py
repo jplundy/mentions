@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 import json
 
@@ -72,3 +72,20 @@ class ExperimentTracker:
         artifact_path.write_bytes(path.read_bytes())
         if self.run_id and mlflow is not None:
             mlflow.log_artifact(str(path))
+
+    def log_news_metadata(
+        self,
+        *,
+        snapshot_hash: Optional[str],
+        provenance: Dict[str, list],
+    ) -> None:
+        if snapshot_hash:
+            hash_path = self.output_dir / "news_snapshot_hash.txt"
+            hash_path.write_text(snapshot_hash, encoding="utf-8")
+            if self.run_id and mlflow is not None:
+                mlflow.log_param("news_snapshot_hash", snapshot_hash)
+        if provenance:
+            provenance_path = self.output_dir / "news_provenance.json"
+            provenance_path.write_text(json.dumps(provenance, indent=2), encoding="utf-8")
+            if self.run_id and mlflow is not None:
+                mlflow.log_dict(provenance, "news_provenance.json")

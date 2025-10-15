@@ -2,6 +2,7 @@
 
 dataset_path: ../data/segments_v0.parquet
 target_column: target__inflation
+news_features_path: null  # Optional path to aggregated news features keyed by event_id
 feature:
   text:
     column: text

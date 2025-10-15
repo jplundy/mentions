@@ -11,6 +11,7 @@ from sklearn.pipeline import Pipeline
 
 from .calibration import CalibrationResult, calibrate_model
 from .config import ExperimentConfig
+from .dataset import DatasetBundle, DatasetLoader
 from .evaluation import (
     ExperimentResult,
     FoldResult,
@@ -41,16 +42,20 @@ class BaselineExperiment:
         self.fold_artifacts: List[FoldArtifacts] = []
         self.calibration_result: Optional[CalibrationResult] = None
         self.final_pipeline: Optional[Pipeline] = None
+        self.dataset_bundle: Optional[DatasetBundle] = None
 
     def load_dataset(self) -> pd.DataFrame:
         """Load the dataset referenced by the configuration."""
 
-        dataset_path = self.config.dataset_path
-        if dataset_path.suffix == ".parquet":
-            return pd.read_parquet(dataset_path)
-        if dataset_path.suffix in {".csv", ".tsv"}:
-            return pd.read_csv(dataset_path)
-        raise ValueError(f"Unsupported dataset format: {dataset_path.suffix}")
+        loader = DatasetLoader(self.config)
+        bundle = loader.load()
+        self.dataset_bundle = bundle
+        if bundle.news:
+            self.tracker.log_news_metadata(
+                snapshot_hash=bundle.news.snapshot_hash,
+                provenance=bundle.news.provenance_by_event,
+            )
+        return bundle.frame
 
     def run(self) -> ExperimentResult:
         """Execute the configured experiment."""
