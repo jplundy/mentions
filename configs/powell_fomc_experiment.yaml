@@ -1,0 +1,28 @@
+dataset_path: data/derivatives/powell_fomc/segments_powell_v4.parquet
+target_column: target__credit
+feature:
+  text:
+    column: text
+    params:
+      max_features: 20000
+      ngram_range: [1, 2]
+      min_df: 2
+      max_df: 0.95
+  categorical:
+    columns: [event_type, speaker]
+    drop: null
+    sparse: true
+  include_embeddings: false
+model:
+  type: logistic_regression
+  params:
+    C: 1.0
+validation:
+  strategy: leave_one_event_out
+  minimum_train_events: 3
+calibration:
+  method: isotonic
+  cv: 3
+tracking:
+  output_directory: experiments/powell_baseline4
+  use_mlflow: false

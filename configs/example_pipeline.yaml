@@ -13,6 +13,11 @@ segmentation:
   # window_size: 200
   # stride: 150
 
+# Optional speaker filter to restrict segments to specific participants.
+speaker_filter:
+  include:
+    - powell
+
 # Optional metadata overrides keyed by event_id. These values merge with the inventory entries.
 metadata_overrides:
   SAMPLE_EVENT_2020:

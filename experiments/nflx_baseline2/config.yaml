@@ -1,0 +1,40 @@
+dataset_path: data/derivatives/nflx/segments_nflx_v2.parquet
+target_column: target__guidance
+feature:
+  text:
+    type: tfidf
+    column: text
+    params:
+      max_features: 20000
+      ngram_range:
+      - 1
+      - 2
+      min_df: 2
+      max_df: 0.95
+  categorical:
+    columns:
+    - event_type
+    - speaker
+    drop: null
+    sparse: true
+    handle_unknown: ignore
+  include_embeddings: false
+  embedding_params: {}
+model:
+  type: logistic_regression
+  params:
+    C: 1.0
+validation:
+  strategy: leave_one_event_out
+  n_splits: 3
+  minimum_train_events: 3
+  date_column: event_date
+  group_column: event_id
+calibration:
+  method: isotonic
+  cv: 3
+tracking:
+  output_directory: experiments/nflx_baseline2
+  use_mlflow: false
+  mlflow_tracking_uri: null
+  experiment_name: baseline

@@ -24,6 +24,7 @@ except Exception:  # pragma: no cover
 
 from .inventory import TranscriptInventory, TranscriptRecord
 from .segmentation import Segment
+from .speakers import SpeakerFilter
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ class DatasetPublisher:
     inventory: TranscriptInventory
     output_dir: Path
     target_words: Iterable[str]
+    speaker_filter: Optional[SpeakerFilter] = None
 
     def __post_init__(self) -> None:
         # Normalize the target words to a list to avoid exhausting generators.
@@ -76,6 +78,8 @@ class DatasetPublisher:
         rows: List[Dict[str, object]] = []
         target_pairs = [(word, word.lower()) for word in self.target_words]
         for segment in segments:
+            if self.speaker_filter and not self.speaker_filter.allows(segment.speaker):
+                continue
             text_lower = segment.text.lower()
             target_hits = {}
             for original, lower in target_pairs:
@@ -86,7 +90,6 @@ class DatasetPublisher:
                 else:
                     matched = lower in text_lower
                 target_hits[self._target_mapping[original]] = matched
-
             row = {
                 "event_id": record.event_id,
                 "segment_id": segment.segment_id,

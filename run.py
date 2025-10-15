@@ -13,6 +13,7 @@ from pipeline import (
     PipelineConfig,
     Segment,
     Segmenter,
+    SpeakerFilter,
     TranscriptInventory,
     TranscriptPreprocessor,
 )
@@ -48,10 +49,18 @@ def run_pipeline(args: argparse.Namespace) -> Path:
     ingestor = PDFIngestor(prefer_pdfplumber=args.backend == "pdfplumber")
     preprocessor = TranscriptPreprocessor()
     segmenter = Segmenter(config.segmentation)
+    speaker_filter = None
+    if config.speaker_filter:
+        speaker_filter = SpeakerFilter.from_terms(
+            include=config.speaker_filter.include,
+            exclude=config.speaker_filter.exclude,
+        )
+
     publisher = DatasetPublisher(
         inventory=inventory,
         output_dir=config.output_directory,
         target_words=config.iter_target_words(),
+        speaker_filter=speaker_filter,
     )
 
     segmented_records: Dict[str, List[Segment]] = {}
