@@ -33,6 +33,9 @@ included at `configs/example_pipeline.yaml`, and a CSV template is available at
   `target__<word>` are added for each entry.
 - `segmentation`: Controls the segmentation strategy; `speaker_turn` uses detected
   speaker labels, while `fixed_window` requires a `window_size` (and optional `stride`).
+- `speaker_filter`: Optional include/exclude lists for restricting segments to
+  specific speakers. Terms are matched case-insensitively; prefix with
+  `regex:` to provide a custom regular expression.
 - `metadata_overrides`: Optional per-event metadata updates applied after loading the
   inventory.
 

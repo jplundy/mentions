@@ -45,3 +45,7 @@ target_words:
   - unchanged
 segmentation:
   mode: speaker_turn
+
+speaker_filter:
+  include:
+    - powell
