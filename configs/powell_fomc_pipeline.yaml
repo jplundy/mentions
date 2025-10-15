@@ -29,5 +29,19 @@ target_words:
   - "good afternoon"
   - expectation
   - projection
+  - egg
+  - "fort knox"
+  - QT
+  - QE
+  - "quantitative tightening"
+  - "quantitative easing"
+  - trump
+  - "consumer confidence"
+  - "dot plot"
+  - "beige book"
+  - uncertainty
+  - "tariff inflation"
+  - tariff
+  - unchanged
 segmentation:
   mode: speaker_turn

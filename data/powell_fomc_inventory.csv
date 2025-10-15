@@ -1,5 +1,21 @@
 event_id,event_type,event_date,speakers,pdf_file,source_url,provenance
 FOMC_JAN2024,fomc_press_conference,2024-01-31,"Jerome Powell",FOMCpresconf20240131.pdf,https://www.federalreserve.gov,Public domain
+FOMC_JAN2022,fomc_press_conference,2022-01-26,"Jerome Powell",FOMCpresconf20220126.pdf,https://www.federalreserve.gov,Public domain
+FOMC_MAR2022,fomc_press_conference,2022-03-16,"Jerome Powell",FOMCpresconf20220316.pdf,https://www.federalreserve.gov,Public domain
+FOMC_MAY2022,fomc_press_conference,2022-05-04,"Jerome Powell",FOMCpresconf20220504.pdf,https://www.federalreserve.gov,Public domain
+FOMC_JUN2022,fomc_press_conference,2022-06-15,"Jerome Powell",FOMCpresconf20220615.pdf,https://www.federalreserve.gov,Public domain
+FOMC_JUL2022,fomc_press_conference,2022-07-27,"Jerome Powell",FOMCpresconf20220727.pdf,https://www.federalreserve.gov,Public domain
+FOMC_SEP2022,fomc_press_conference,2022-09-21,"Jerome Powell",FOMCpresconf20220921.pdf,https://www.federalreserve.gov,Public domain
+FOMC_NOV2022,fomc_press_conference,2022-11-02,"Jerome Powell",FOMCpresconf20221102.pdf,https://www.federalreserve.gov,Public domain
+FOMC_DEC2022,fomc_press_conference,2022-12-14,"Jerome Powell",FOMCpresconf20221214.pdf,https://www.federalreserve.gov,Public domain
+FOMC_FEB2023,fomc_press_conference,2023-02-01,"Jerome Powell",FOMCpresconf20230201.pdf,https://www.federalreserve.gov,Public domain
+FOMC_MAR2023,fomc_press_conference,2023-03-22,"Jerome Powell",FOMCpresconf20230322.pdf,https://www.federalreserve.gov,Public domain
+FOMC_MAY2023,fomc_press_conference,2023-05-03,"Jerome Powell",FOMCpresconf20230503.pdf,https://www.federalreserve.gov,Public domain
+FOMC_JUN2023,fomc_press_conference,2023-06-14,"Jerome Powell",FOMCpresconf20230614.pdf,https://www.federalreserve.gov,Public domain
+FOMC_JUL2023,fomc_press_conference,2023-07-26,"Jerome Powell",FOMCpresconf20230726.pdf,https://www.federalreserve.gov,Public domain
+FOMC_SEP2023,fomc_press_conference,2023-09-20,"Jerome Powell",FOMCpresconf20230920.pdf,https://www.federalreserve.gov,Public domain
+FOMC_NOV2023,fomc_press_conference,2023-11-01,"Jerome Powell",FOMCpresconf20231101.pdf,https://www.federalreserve.gov,Public domain
+FOMC_DEC2023,fomc_press_conference,2023-12-13,"Jerome Powell",FOMCpresconf20231213.pdf,https://www.federalreserve.gov,Public domain
 FOMC_MAR2024,fomc_press_conference,2024-03-20,"Jerome Powell",FOMCpresconf20240320.pdf,https://www.federalreserve.gov,Public domain
 FOMC_MAY2024,fomc_press_conference,2024-05-01,"Jerome Powell",FOMCpresconf20240501.pdf,https://www.federalreserve.gov,Public domain
 FOMC_JUN2024,fomc_press_conference,2024-06-12,"Jerome Powell",FOMCpresconf20240612.pdf,https://www.federalreserve.gov,Public domain

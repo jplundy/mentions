@@ -1,10 +1,10 @@
 {
   "version": "nflx_v2",
-  "generated_at": "20251007T024929Z",
-  "num_rows": 252,
+  "generated_at": "20251007T030739Z",
+  "num_rows": 700,
   "validation": {
     "checks": {
-      "unique_segment_ids": false,
+      "unique_segment_ids": true,
       "non_empty_text": true
     },
     "notes": []
