@@ -1,21 +1,30 @@
 """Data pipeline package for transcript ingestion and preprocessing."""
 
-from .config import PipelineConfig, SpeakerFilterConfig
-from .dataset import DatasetPublisher
-from .ingestion import PDFIngestor
-from .inventory import TranscriptInventory
-from .preprocessing import TranscriptPreprocessor
-from .segmentation import Segment, Segmenter
-from .speakers import SpeakerFilter
+from __future__ import annotations
 
-__all__ = [
-    "PipelineConfig",
-    "SpeakerFilterConfig",
-    "DatasetPublisher",
-    "PDFIngestor",
-    "TranscriptInventory",
-    "TranscriptPreprocessor",
-    "Segment",
-    "Segmenter",
-    "SpeakerFilter",
-]
+import importlib
+from typing import Any, Dict, Tuple
+
+_EXPORTS: Dict[str, Tuple[str, str]] = {
+    "PipelineConfig": ("config", "PipelineConfig"),
+    "SpeakerFilterConfig": ("config", "SpeakerFilterConfig"),
+    "DatasetPublisher": ("dataset", "DatasetPublisher"),
+    "PDFIngestor": ("ingestion", "PDFIngestor"),
+    "TranscriptInventory": ("inventory", "TranscriptInventory"),
+    "TranscriptPreprocessor": ("preprocessing", "TranscriptPreprocessor"),
+    "Segment": ("segmentation", "Segment"),
+    "Segmenter": ("segmentation", "Segmenter"),
+    "SpeakerFilter": ("speakers", "SpeakerFilter"),
+}
+
+__all__ = list(_EXPORTS)
+
+
+def __getattr__(name: str) -> Any:
+    if name not in _EXPORTS:
+        raise AttributeError(f"module 'pipeline' has no attribute {name!r}")
+    module_name, attribute = _EXPORTS[name]
+    module = importlib.import_module(f".{module_name}", __name__)
+    value = getattr(module, attribute)
+    globals()[name] = value
+    return value

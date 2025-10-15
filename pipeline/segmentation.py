@@ -5,9 +5,10 @@ from __future__ import annotations
 import itertools
 import re
 from dataclasses import dataclass
-from typing import Iterable, Iterator, List, Optional
+from typing import Iterable, Iterator, List, Optional, TYPE_CHECKING
 
-from .config import SegmentationConfig
+if TYPE_CHECKING:  # pragma: no cover - for type checking only
+    from .config import SegmentationConfig
 
 
 @dataclass
@@ -25,7 +26,7 @@ class Segment:
 class Segmenter:
     """Create transcript segments according to configurable rules."""
 
-    def __init__(self, config: SegmentationConfig):
+    def __init__(self, config: "SegmentationConfig"):
         self.config = config
 
     def segment(self, event_id: str, text: str) -> List[Segment]:
