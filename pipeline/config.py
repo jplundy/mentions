@@ -30,6 +30,41 @@ class SegmentationConfig:
 
 
 @dataclass
+class SpeakerFilterConfig:
+    """Configuration describing which speakers to include or exclude."""
+
+    include: List[str] = field(default_factory=list)
+    exclude: List[str] = field(default_factory=list)
+
+    @staticmethod
+    def _coerce_terms(value: object) -> List[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value]
+        return list(value)
+
+    @classmethod
+    def from_raw(cls, data: Dict[str, object]) -> "SpeakerFilterConfig":
+        include = cls._coerce_terms(data.get("include"))
+        exclude = cls._coerce_terms(data.get("exclude"))
+        return cls(include=include, exclude=exclude).normalised()
+
+    def normalised(self) -> "SpeakerFilterConfig":
+        cleaned_include = [
+            str(term).strip()
+            for term in self.include
+            if str(term).strip()
+        ]
+        cleaned_exclude = [
+            str(term).strip()
+            for term in self.exclude
+            if str(term).strip()
+        ]
+        return SpeakerFilterConfig(include=cleaned_include, exclude=cleaned_exclude)
+
+
+@dataclass
 class PipelineConfig:
     """Top-level configuration for building the historical transcript dataset."""
 
@@ -39,6 +74,7 @@ class PipelineConfig:
     output_directory: Path
     target_words: List[str] = field(default_factory=list)
     segmentation: SegmentationConfig = field(default_factory=SegmentationConfig)
+    speaker_filter: Optional[SpeakerFilterConfig] = None
     metadata_overrides: Dict[str, Dict[str, str]] = field(default_factory=dict)
 
     @classmethod
@@ -55,6 +91,10 @@ class PipelineConfig:
         base_dir = path.parent.resolve()
         segmentation_cfg = SegmentationConfig(**raw.get("segmentation", {}))
         segmentation_cfg.validate()
+        speaker_filter_cfg = None
+        speaker_filter_raw = raw.get("speaker_filter")
+        if isinstance(speaker_filter_raw, dict):
+            speaker_filter_cfg = SpeakerFilterConfig.from_raw(speaker_filter_raw)
         config = cls(
             base_dir=base_dir,
             inventory_path=(base_dir / raw["inventory_path"]).expanduser().resolve(),
@@ -63,6 +103,7 @@ class PipelineConfig:
             target_words=list(raw.get("target_words", [])),
             segmentation=segmentation_cfg,
             metadata_overrides=raw.get("metadata_overrides", {}),
+            speaker_filter=speaker_filter_cfg,
         )
         return config
 
