@@ -17,7 +17,9 @@ FOOTER_PATTERNS = [
     re.compile(r"^\s*\*+\s*$"),
 ]
 
-SPEAKER_LABEL_PATTERN = re.compile(r"^(?P<label>[A-Za-z][A-Za-z\.\s\-']{1,60})\s*:")
+SPEAKER_LABEL_PATTERN = re.compile(
+    r"^(?P<label>[A-Za-z][A-Za-z\.\s\-']{1,60})\s*(?P<delimiter>[:\.])"
+)
 
 _CONNECTOR_TOKENS = {"of", "the", "and", "for", "to", "in", "on", "at", "with"}
 _HONORIFICS = {"mr", "mrs", "ms", "dr", "prof", "professor", "chair", "chairman", "chairwoman", "vice", "gov", "governor", "president"}
