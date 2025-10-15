@@ -17,7 +17,46 @@ FOOTER_PATTERNS = [
     re.compile(r"^\s*\*+\s*$"),
 ]
 
-SPEAKER_LABEL_PATTERN = re.compile(r"^(?P<label>[A-Z][A-Z\.\s\-']{1,40}):")
+SPEAKER_LABEL_PATTERN = re.compile(r"^(?P<label>[A-Za-z][A-Za-z\.\s\-']{1,60})\s*:")
+
+_CONNECTOR_TOKENS = {"of", "the", "and", "for", "to", "in", "on", "at", "with"}
+_HONORIFICS = {"mr", "mrs", "ms", "dr", "prof", "professor", "chair", "chairman", "chairwoman", "vice", "gov", "governor", "president"}
+
+
+def _clean_label_token(token: str) -> str:
+    """Return a simplified version of a potential speaker label token."""
+
+    token = token.strip().strip(":")
+    token = token.replace("'", "").replace("-", "")
+    return token.replace(".", "")
+
+
+def _is_probable_speaker_label(label: str) -> bool:
+    """Heuristically determine if ``label`` is likely a speaker identifier."""
+
+    tokens = [token for token in re.split(r"\s+", label.strip()) if token]
+    if not tokens or len(tokens) > 8:
+        return False
+
+    meaningful_tokens = 0
+    for token in tokens:
+        cleaned = _clean_label_token(token)
+        if not cleaned:
+            return False
+        lower = cleaned.lower()
+        if lower in _CONNECTOR_TOKENS:
+            continue
+        if lower in _HONORIFICS:
+            meaningful_tokens += 1
+            continue
+        if cleaned.isupper():
+            meaningful_tokens += 1
+            continue
+        if cleaned[0].isupper() and cleaned[1:].islower():
+            meaningful_tokens += 1
+            continue
+        return False
+    return meaningful_tokens > 0
 
 
 @dataclass
@@ -57,9 +96,15 @@ class TranscriptPreprocessor:
         line = re.sub(r"\s+", " ", line.strip())
         match = SPEAKER_LABEL_PATTERN.match(line)
         if match:
-            label = match.group("label").upper().replace(".", "").replace("  ", " ")
-            remainder = line[match.end():].lstrip()
-            return f"{label}: {remainder}" if remainder else f"{label}:"
+            label = match.group("label")
+            if _is_probable_speaker_label(label):
+                normalized_label = re.sub(r"\s+", " ", label.strip()).upper().replace(".", "")
+                remainder = line[match.end():].lstrip()
+                return (
+                    f"{normalized_label}: {remainder}"
+                    if remainder
+                    else f"{normalized_label}:"
+                )
         return line
 
     def merge_pages(self, pages: Iterable[str]) -> str:
