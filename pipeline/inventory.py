@@ -7,9 +7,10 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Iterable, Iterator, List, Optional
+from typing import Dict, Iterable, Iterator, List, Optional, TYPE_CHECKING
 
-from .config import PipelineConfig
+if TYPE_CHECKING:  # pragma: no cover - only used for typing
+    from .config import PipelineConfig
 
 
 @dataclass
@@ -65,7 +66,7 @@ class TranscriptInventory:
         return [record.as_dict() for record in self._records]
 
     @classmethod
-    def from_config(cls, config: PipelineConfig) -> "TranscriptInventory":
+    def from_config(cls, config: "PipelineConfig") -> "TranscriptInventory":
         path = config.inventory_path
         if not path.exists():
             raise FileNotFoundError(f"Inventory file not found: {path}")
