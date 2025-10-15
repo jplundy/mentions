@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass
+import math
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
@@ -11,9 +12,11 @@ import pandas as pd
 from dash import Dash, Input, Output, dash_table, dcc, html
 import plotly.express as px
 import plotly.graph_objects as go
+import yaml
 
 LOGGER = logging.getLogger(__name__)
 DATA_DIR = Path("data")
+EXPERIMENTS_DIR = Path("experiments")
 
 
 @dataclass
@@ -29,6 +32,7 @@ class InventoryPayload:
     target_terms: List[str]
     dataset_label: str
     project_key: Optional[str]
+    baseline_metrics: List["BaselineMetric"] = field(default_factory=list)
 
     def as_dict(self) -> Dict[str, object]:
         return {
@@ -41,6 +45,39 @@ class InventoryPayload:
             "target_terms": self.target_terms,
             "dataset_label": self.dataset_label,
             "project_key": self.project_key,
+            "baseline_metrics": [metric.as_dict() for metric in self.baseline_metrics],
+        }
+
+
+@dataclass
+class BaselineMetric:
+    """Aggregated performance metrics for a tracked target phrase."""
+
+    phrase: str
+    experiment: str
+    target_column: Optional[str]
+    dataset_path: Optional[Path]
+    dataset_version: Optional[str]
+    generated_at: Optional[str]
+    num_rows: Optional[int]
+    log_loss: Optional[float]
+    brier: Optional[float]
+    accuracy: Optional[float]
+    average_precision: Optional[float]
+
+    def as_dict(self) -> Dict[str, object]:
+        return {
+            "phrase": self.phrase,
+            "experiment": self.experiment,
+            "target_column": self.target_column,
+            "dataset_path": str(self.dataset_path) if self.dataset_path else None,
+            "dataset_version": self.dataset_version,
+            "generated_at": self.generated_at,
+            "num_rows": self.num_rows,
+            "log_loss": self.log_loss,
+            "brier": self.brier,
+            "accuracy": self.accuracy,
+            "average_precision": self.average_precision,
         }
 
 
@@ -85,6 +122,184 @@ def load_target_terms(project_key: Optional[str], data_dir: Path = DATA_DIR) -> 
         if isinstance(target_columns, dict) and target_columns:
             return sorted(target_columns.keys())
     return []
+
+
+def load_baseline_metrics(
+    project_key: Optional[str],
+    experiments_dir: Path = EXPERIMENTS_DIR,
+) -> List[BaselineMetric]:
+    """Load aggregated baseline metrics for tracked phrases in a project."""
+
+    if not project_key or not experiments_dir.exists():
+        return []
+
+    pattern = f"{project_key}_baseline*"
+    candidates = sorted(p for p in experiments_dir.glob(pattern) if p.is_dir())
+    metrics: List[BaselineMetric] = []
+    for run_dir in candidates:
+        metric = _load_baseline_metric(run_dir)
+        if metric:
+            metrics.append(metric)
+
+    metrics.sort(key=lambda item: (item.phrase.lower(), item.experiment))
+    return metrics
+
+
+def _load_baseline_metric(run_dir: Path) -> Optional[BaselineMetric]:
+    """Return baseline metrics parsed from a single experiment directory."""
+
+    config_path = run_dir / "config.yaml"
+    metrics_path = run_dir / "aggregate_metrics.json"
+    if not config_path.exists() or not metrics_path.exists():
+        return None
+
+    try:
+        config = yaml.safe_load(config_path.read_text())
+    except Exception as exc:  # pragma: no cover - defensive
+        LOGGER.warning("Failed to parse baseline config %s: %s", config_path, exc)
+        return None
+
+    target_column = config.get("target_column") if isinstance(config, dict) else None
+    dataset_path_value = config.get("dataset_path") if isinstance(config, dict) else None
+    dataset_path = Path(dataset_path_value) if dataset_path_value else None
+
+    manifest_data: Optional[Dict[str, object]] = None
+    manifest_path = _resolve_manifest_path(dataset_path) if dataset_path else None
+    if manifest_path and manifest_path.exists():
+        try:
+            with manifest_path.open("r", encoding="utf-8") as manifest_file:
+                manifest_data = json.load(manifest_file)
+        except (OSError, json.JSONDecodeError) as exc:  # pragma: no cover - defensive
+            LOGGER.warning("Failed to load manifest %s: %s", manifest_path, exc)
+
+    phrase = None
+    dataset_version = None
+    generated_at = None
+    num_rows = None
+    if isinstance(manifest_data, dict):
+        dataset_version = manifest_data.get("version")
+        generated_at = manifest_data.get("generated_at")
+        num_rows = manifest_data.get("num_rows")
+        target_map = manifest_data.get("target_columns") or {}
+        if isinstance(target_map, dict) and target_column:
+            phrase = next(
+                (label for label, column in target_map.items() if column == target_column),
+                None,
+            )
+
+    clean_phrase = _humanize_target_column(target_column, phrase)
+
+    try:
+        with metrics_path.open("r", encoding="utf-8") as metrics_file:
+            raw_metrics = json.load(metrics_file)
+    except (OSError, json.JSONDecodeError) as exc:  # pragma: no cover - defensive
+        LOGGER.warning("Failed to load metrics %s: %s", metrics_path, exc)
+        return None
+
+    return BaselineMetric(
+        phrase=clean_phrase,
+        experiment=run_dir.name,
+        target_column=target_column,
+        dataset_path=dataset_path,
+        dataset_version=dataset_version,
+        generated_at=generated_at,
+        num_rows=num_rows if isinstance(num_rows, int) else None,
+        log_loss=_clean_metric(raw_metrics.get("log_loss")),
+        brier=_clean_metric(raw_metrics.get("brier")),
+        accuracy=_clean_metric(raw_metrics.get("accuracy")),
+        average_precision=_clean_metric(raw_metrics.get("average_precision")),
+    )
+
+
+def _clean_metric(value: object) -> Optional[float]:
+    """Return a float metric or ``None`` if the value is missing/invalid."""
+
+    if value is None:
+        return None
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+    if math.isnan(numeric):
+        return None
+    return numeric
+
+
+def _humanize_target_column(
+    target_column: Optional[str], fallback: Optional[str]
+) -> str:
+    """Convert a target column slug into a human-readable phrase."""
+
+    if fallback:
+        return fallback
+    if not target_column:
+        return "Tracked phrase"
+    label = target_column
+    if label.startswith("target__"):
+        label = label[len("target__") :]
+    return label.replace("_", " ")
+
+
+def _resolve_manifest_path(dataset_path: Path) -> Optional[Path]:
+    """Infer the JSON manifest associated with a dataset path."""
+
+    if not dataset_path:
+        return None
+
+    candidates = []
+    try:
+        candidates.append(dataset_path.with_suffix(".json"))
+    except ValueError:  # pragma: no cover - unlikely but defensive
+        pass
+
+    parent = dataset_path.parent
+    stem = dataset_path.stem
+    if parent.exists():
+        candidates.extend(parent.glob(f"{stem}.json"))
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _format_percent(value: Optional[float]) -> str:
+    """Return a human-readable percentage or em dash for missing values."""
+
+    if value is None:
+        return "—"
+    return f"{value:.1%}"
+
+
+def _format_score(value: Optional[float]) -> str:
+    """Return a compact numeric string for scalar metrics."""
+
+    if value is None:
+        return "—"
+    return f"{value:.3f}"
+
+
+def _empty_baseline_figure(message: str) -> go.Figure:
+    """Return a placeholder figure with a centered annotation."""
+
+    fig = go.Figure()
+    fig.update_layout(
+        title="Baseline accuracy by tracked phrase",
+        template="plotly_white",
+        xaxis_title="Tracked phrase",
+        yaxis_title="Accuracy",
+        yaxis_tickformat=".0%",
+    )
+    fig.add_annotation(
+        text=message,
+        showarrow=False,
+        x=0.5,
+        y=0.5,
+        xref="paper",
+        yref="paper",
+        font={"color": "#666"},
+    )
+    return fig
 
 
 def _choose_date_column(columns: Iterable[str]) -> Optional[str]:
@@ -136,6 +351,7 @@ def load_inventory_payload(path: Path) -> InventoryPayload:
     records = df.to_dict("records")
 
     target_terms = load_target_terms(project_key)
+    baseline_metrics = load_baseline_metrics(project_key)
 
     return InventoryPayload(
         records=records,
@@ -147,6 +363,7 @@ def load_inventory_payload(path: Path) -> InventoryPayload:
         target_terms=target_terms,
         dataset_label=dataset_label,
         project_key=project_key,
+        baseline_metrics=baseline_metrics,
     )
 
 
@@ -220,6 +437,30 @@ def build_dash_app() -> Dash:
                 style_header={"fontWeight": "bold"},
             ),
             html.Div(id="target-summary", className="summary-card"),
+            html.Div(
+                className="baseline-card",
+                children=[
+                    html.H2("Baseline tracked phrase performance"),
+                    html.P(
+                        "Metrics loaded from baseline experiment outputs associated with this "
+                        "inventory. Values summarize how historical models performed for each "
+                        "tracked phrase."
+                    ),
+                    dcc.Graph(
+                        id="baseline-performance-graph",
+                        config={"displaylogo": False},
+                    ),
+                    dash_table.DataTable(
+                        id="baseline-metrics-table",
+                        data=[],
+                        columns=[],
+                        page_size=10,
+                        style_table={"overflowX": "auto"},
+                        style_cell={"textAlign": "left", "padding": "0.5rem"},
+                        style_header={"fontWeight": "bold"},
+                    ),
+                ],
+            ),
         ],
     )
 
@@ -287,6 +528,96 @@ def build_dash_app() -> Dash:
             store_data.get("date_max"),
             target_children,
         )
+
+    @app.callback(
+        Output("baseline-performance-graph", "figure"),
+        Output("baseline-metrics-table", "data"),
+        Output("baseline-metrics-table", "columns"),
+        Input("inventory-store", "data"),
+        prevent_initial_call=False,
+    )
+    def update_baseline_section(store_data: Optional[Dict[str, object]]):
+        if not store_data:
+            return _empty_baseline_figure("Select a dataset to load baseline experiments."), [], []
+
+        baseline_metrics = store_data.get("baseline_metrics") or []
+        if not baseline_metrics:
+            return _empty_baseline_figure(
+                "No baseline experiments discovered for this dataset."
+            ), [], []
+
+        baseline_df = pd.DataFrame(baseline_metrics)
+        metric_df = baseline_df.dropna(subset=["accuracy"]).copy()
+        for column in ("accuracy", "average_precision", "log_loss", "brier"):
+            if column in metric_df.columns:
+                metric_df[column] = pd.to_numeric(metric_df[column], errors="coerce")
+        metric_df.sort_values(["phrase", "experiment"], inplace=True)
+
+        if metric_df.empty:
+            figure = _empty_baseline_figure(
+                "Baseline experiments did not report accuracy metrics."
+            )
+        else:
+            figure = px.bar(
+                metric_df,
+                x="phrase",
+                y="accuracy",
+                color="experiment",
+                title="Baseline accuracy by tracked phrase",
+                labels={
+                    "phrase": "Tracked phrase",
+                    "accuracy": "Accuracy",
+                    "experiment": "Experiment",
+                },
+            )
+            figure.update_layout(
+                template="plotly_white",
+                yaxis_tickformat=".0%",
+                legend_title_text="Experiment",
+            )
+            customdata = metric_df[
+                ["experiment", "average_precision", "log_loss", "brier"]
+            ].to_numpy()
+            figure.update_traces(
+                customdata=customdata,
+                hovertemplate=(
+                    "<b>%{x}</b><br>"
+                    "Experiment=%{customdata[0]}<br>"
+                    "Accuracy=%{y:.2%}<br>"
+                    "Average precision=%{customdata[1]:.2%}<br>"
+                    "Log loss=%{customdata[2]:.3f}<br>"
+                    "Brier=%{customdata[3]:.3f}<extra></extra>"
+                ),
+            )
+
+        table_rows: List[Dict[str, object]] = []
+        for metric in baseline_metrics:
+            row = {
+                "phrase": metric.get("phrase"),
+                "experiment": metric.get("experiment"),
+                "dataset_version": metric.get("dataset_version") or "—",
+                "generated_at": metric.get("generated_at") or "—",
+                "num_rows": metric.get("num_rows") if metric.get("num_rows") is not None else "—",
+                "accuracy": _format_percent(metric.get("accuracy")),
+                "average_precision": _format_percent(metric.get("average_precision")),
+                "log_loss": _format_score(metric.get("log_loss")),
+                "brier": _format_score(metric.get("brier")),
+            }
+            table_rows.append(row)
+
+        columns = [
+            {"name": "Tracked phrase", "id": "phrase"},
+            {"name": "Experiment", "id": "experiment"},
+            {"name": "Dataset version", "id": "dataset_version"},
+            {"name": "Generated at", "id": "generated_at"},
+            {"name": "Rows", "id": "num_rows"},
+            {"name": "Accuracy", "id": "accuracy"},
+            {"name": "Avg precision", "id": "average_precision"},
+            {"name": "Log loss", "id": "log_loss"},
+            {"name": "Brier", "id": "brier"},
+        ]
+
+        return figure, table_rows, columns
 
     @app.callback(
         Output("inventory-timeline", "figure"),
