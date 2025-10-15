@@ -77,15 +77,16 @@ class DatasetPublisher:
         target_pairs = [(word, word.lower()) for word in self.target_words]
         for segment in segments:
             text_lower = segment.text.lower()
-        target_hits = {}
-        for original, lower in target_pairs:
-            pattern = self._target_patterns.get(original)
-            matched = False
-            if pattern is not None:
-                matched = bool(pattern.search(segment.text))
-            else:
-                matched = lower in text_lower
-            target_hits[self._target_mapping[original]] = matched
+            target_hits = {}
+            for original, lower in target_pairs:
+                pattern = self._target_patterns.get(original)
+                matched = False
+                if pattern is not None:
+                    matched = bool(pattern.search(segment.text))
+                else:
+                    matched = lower in text_lower
+                target_hits[self._target_mapping[original]] = matched
+
             row = {
                 "event_id": record.event_id,
                 "segment_id": segment.segment_id,
