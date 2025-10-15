@@ -83,6 +83,7 @@ class ExperimentConfig:
 
     dataset_path: Path
     target_column: str
+    news_features_path: Optional[Path] = None
     feature: FeatureConfig = field(default_factory=FeatureConfig)
     model: ModelConfig = field(default_factory=ModelConfig)
     validation: ValidationConfig = field(default_factory=ValidationConfig)
@@ -103,6 +104,10 @@ class ExperimentConfig:
 
         dataset_path = Path(data["dataset_path"])
         target_column = data["target_column"]
+        news_features_path_raw = data.get("news_features_path")
+        news_features_path = (
+            Path(news_features_path_raw) if news_features_path_raw else None
+        )
         feature = FeatureConfig(
             text=TextFeatureConfig(**data.get("feature", {}).get("text", {})),
             categorical=CategoricalFeatureConfig(
@@ -129,6 +134,7 @@ class ExperimentConfig:
             validation=validation,
             calibration=calibration,
             tracking=tracking,
+            news_features_path=news_features_path,
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -137,6 +143,9 @@ class ExperimentConfig:
         return {
             "dataset_path": str(self.dataset_path),
             "target_column": self.target_column,
+            "news_features_path": str(self.news_features_path)
+            if self.news_features_path
+            else None,
             "feature": {
                 "text": vars(self.feature.text),
                 "categorical": vars(self.feature.categorical),

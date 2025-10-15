@@ -1,0 +1,8 @@
+raw_directory: ../data/news/raw
+manifest_directory: ../data/news/manifests
+sources:
+  - name: local_wsj_archive
+    loader: news.loaders.load_local_jsonl
+    schedule: "0 6 * * *"
+    params:
+      path: ../data/news/raw/wsj_seed.jsonl

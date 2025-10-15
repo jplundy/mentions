@@ -80,6 +80,23 @@ Validation checks can be extended by updating `DatasetPublisher.validate`. Examp
 include enforcing minimum segment length, verifying coverage of target words, or
 comparing segment counts between versions.
 
+## Ingesting pre-meeting news
+
+The transcript pipeline can be paired with the news ingestion CLI to capture
+pre-meeting coverage that powers auxiliary features:
+
+```bash
+python news_ingest.py configs/example_news_ingestion.yaml --since 2024-01-01T00:00Z
+```
+
+`news_ingest.py` mirrors the transcript runner by accepting a YAML configuration
+that enumerates sources (loader dotted paths plus optional schedules) and an
+output location (`raw_directory`) for JSONL dumps. The CLI resolves the loaders,
+fetches articles within the optional publication window (`--since`/`--until`),
+and writes a manifest capturing the snapshot hash inputs for reproducibility.
+Downstream jobs can then point `news_features.py` at the raw dumps to build the
+aggregated Parquet tables keyed by `event_id` that attach to modeling datasets.
+
 ## Tooling notes
 
 - Install `pdfplumber` or `pypdf` to enable PDF extraction.
