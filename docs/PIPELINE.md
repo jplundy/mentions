@@ -86,3 +86,18 @@ comparing segment counts between versions.
 - Install `pandas` (preferred) or `pyarrow` for Parquet writes.
 - Unit tests can be added with fixtures that generate lightweight PDFs containing
   synthetic transcripts for deterministic regression testing.
+
+## Interactive exploration UI
+
+Use `dash_app.py` to explore the inventory files and tracked keyword metadata without
+writing custom notebooks. The Dash application automatically discovers inventory CSVs in
+the `data/` directory, summarizes event coverage, and displays target-word tags pulled
+from derivative manifests.
+
+```bash
+python dash_app.py
+```
+
+By default the development server runs on http://127.0.0.1:8050/. Use the dropdown to
+switch between inventories, filter events by type and date range, and review the keyword
+tags that drive boolean target columns in the published datasets.
