@@ -42,7 +42,7 @@ The process has three stages:
    - `event_id`: a unique slug (e.g., `fomc_2023_06_powell`).
    - `event_type`: `fomc_press_conference`.
    - `event_date`: ISO-format date of the conference.
-   - `speaker`: include `Jerome Powell` and other speakers if needed.
+   - `speakers`: include `Jerome Powell` and other speakers if needed.
    - `pdf_file`: filename of the downloaded transcript PDF stored in
      `data/pdfs/` (create the directory if it does not exist).
    - `source_url` and `provenance`: optional but recommended for traceability.
