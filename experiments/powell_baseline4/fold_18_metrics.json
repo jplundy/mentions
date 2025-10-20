@@ -1,0 +1,10 @@
+{
+  "log_loss": 0.19494559142844023,
+  "brier": 0.03268143905939645,
+  "roc_auc": NaN,
+  "average_precision": 0.0,
+  "f1": 0.0,
+  "precision": 0.0,
+  "recall": 0.0,
+  "accuracy": 1.0
+}

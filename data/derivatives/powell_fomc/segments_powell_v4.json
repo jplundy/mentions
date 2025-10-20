@@ -1,14 +1,13 @@
 {
   "version": "powell_v4",
-  "generated_at": "20251015T025233Z",
-  "num_rows": 0,
+  "generated_at": "20251015T033359Z",
+  "num_rows": 743,
   "validation": {
     "checks": {
-      "non_empty": false
+      "unique_segment_ids": true,
+      "non_empty_text": true
     },
-    "notes": [
-      "No rows produced from segmentation"
-    ]
+    "notes": []
   },
   "target_columns": {
     "powell": "target__powell",

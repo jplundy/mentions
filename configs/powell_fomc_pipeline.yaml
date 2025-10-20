@@ -48,3 +48,5 @@ segmentation:
 speaker_filter:
   include:
     - powell
+    - "CHAIR POWELL"
+    - "CHAIR POWELL."

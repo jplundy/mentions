@@ -1,21 +1,13 @@
-dataset_path: data/derivatives/powell_fomc/segments_powell_v4.parquet
-target_column: target__credit
+dataset_path: /private/var/folders/p3/svv3_rhn7mlfyw2x0bgcq_k40000gn/T/pytest-of-justin/pytest-0/test_prepare_features_and_targ1/dummy.csv
+target_column: label
 news_features_path: null
 feature:
   text:
     type: tfidf
     column: text
-    params:
-      max_features: 20000
-      ngram_range:
-      - 1
-      - 2
-      min_df: 2
-      max_df: 0.95
+    params: {}
   categorical:
-    columns:
-    - event_type
-    - speaker
+    columns: []
     drop: null
     sparse: true
     handle_unknown: ignore
@@ -23,19 +15,18 @@ feature:
   embedding_params: {}
 model:
   type: logistic_regression
-  params:
-    C: 1.0
+  params: {}
 validation:
-  strategy: leave_one_event_out
+  strategy: rolling
   n_splits: 3
-  minimum_train_events: 3
+  minimum_train_events: 5
   date_column: event_date
   group_column: event_id
 calibration:
   method: isotonic
   cv: 3
 tracking:
-  output_directory: experiments/powell_baseline4
+  output_directory: experiments
   use_mlflow: false
   mlflow_tracking_uri: null
   experiment_name: baseline
