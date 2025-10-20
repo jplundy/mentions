@@ -90,3 +90,53 @@ def test_authentication_sets_authorization_header():
     client.authenticate(email="user@example.com", password="secret")
 
     assert session.headers["Authorization"] == "Bearer xyz"
+
+
+def test_get_market_candlesticks_returns_list_of_mappings():
+    session = DummySession()
+    session.response = DummyResponse(
+        200,
+        {
+            "ticker": "SERIES-1",
+            "candlesticks": [
+                {"end_period_ts": 100, "volume": 5},
+                {"end_period_ts": 200, "volume": 7},
+            ],
+        },
+    )
+    client = KalshiClient(session=session)
+
+    candlesticks = client.get_market_candlesticks(
+        series_ticker="SERIES",
+        market_ticker="SERIES-1",
+        start_ts=0,
+        end_ts=3600,
+        period_minutes=60,
+    )
+
+    assert candlesticks == [
+        {"end_period_ts": 100, "volume": 5},
+        {"end_period_ts": 200, "volume": 7},
+    ]
+    request = session.requests[-1]
+    assert request.url.endswith("/series/SERIES/markets/SERIES-1/candlesticks")
+    assert request.kwargs["params"] == {
+        "start_ts": 0,
+        "end_ts": 3600,
+        "period_interval": 60,
+    }
+
+
+def test_get_market_candlesticks_validates_period_interval():
+    session = DummySession()
+    session.response = DummyResponse(200, {"candlesticks": []})
+    client = KalshiClient(session=session)
+
+    with pytest.raises(KalshiAPIError):
+        client.get_market_candlesticks(
+            series_ticker="SERIES",
+            market_ticker="SERIES-1",
+            start_ts=0,
+            end_ts=3600,
+            period_minutes=5,
+        )

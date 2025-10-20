@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Iterable, Mapping, Optional, Sequence
 
 try:  # pragma: no cover - optional dependency is environment specific
     import requests as _requests  # type: ignore[import-not-found]
@@ -16,6 +16,7 @@ else:  # pragma: no cover - runtime alias when requests is absent
     SessionType = Any
 
 DEFAULT_API_BASE = "https://trading-api.kalshi.com/trade-api/v2"
+CANDLESTICK_INTERVALS: Sequence[int] = (1, 60, 1440)
 
 
 class KalshiAPIError(RuntimeError):
@@ -174,6 +175,81 @@ class KalshiClient:
                 "Normalized Kalshi probability exceeded 1.0; check price format"
             )
         return probability
+
+    def get_market_candlesticks(
+        self,
+        *,
+        series_ticker: str,
+        market_ticker: str,
+        start_ts: int,
+        end_ts: int,
+        period_minutes: int,
+    ) -> list[Mapping[str, Any]]:
+        """Return historical candlesticks for a market within a time window.
+
+        Parameters
+        ----------
+        series_ticker:
+            The Kalshi series ticker that contains the requested market.
+        market_ticker:
+            The market ticker (for example ``"kxsnfmention-25oct20"``).
+        start_ts:
+            Inclusive Unix timestamp delimiting the earliest candlestick to
+            return.
+        end_ts:
+            Inclusive Unix timestamp delimiting the latest candlestick to
+            return.
+        period_minutes:
+            Size of each candlestick bucket in minutes. Kalshi currently
+            supports ``1`` (minute), ``60`` (hour) and ``1440`` (day).
+
+        Returns
+        -------
+        list[Mapping[str, Any]]
+            A list of candlestick payloads exactly as returned by the Kalshi
+            API. Each mapping contains OHLC information for YES prices along
+            with volume and open interest statistics.
+        """
+
+        if period_minutes not in CANDLESTICK_INTERVALS:
+            raise KalshiAPIError(
+                "period_minutes must be one of {intervals}".format(
+                    intervals=", ".join(str(i) for i in CANDLESTICK_INTERVALS)
+                )
+            )
+
+        params = {
+            "start_ts": int(start_ts),
+            "end_ts": int(end_ts),
+            "period_interval": int(period_minutes),
+        }
+        path = f"/series/{series_ticker}/markets/{market_ticker}/candlesticks"
+        response = self._request("GET", path, params=params)
+        try:
+            payload = response.json()
+        except ValueError as exc:  # pragma: no cover - defensive branch
+            raise KalshiAPIError(
+                f"Kalshi candlestick response for {market_ticker!r} was not valid JSON"
+            ) from exc
+
+        if not isinstance(payload, Mapping):
+            raise KalshiAPIError(
+                f"Kalshi candlestick payload for {market_ticker!r} was not a mapping"
+            )
+
+        candlesticks: Iterable[Any] = payload.get("candlesticks", [])
+        if candlesticks in (None, ""):
+            return []
+
+        normalized: list[Mapping[str, Any]] = []
+        for index, entry in enumerate(candlesticks):
+            if not isinstance(entry, Mapping):
+                raise KalshiAPIError(
+                    "Kalshi candlestick entry #{idx} for {ticker!r} was not a mapping"
+                    .format(idx=index, ticker=market_ticker)
+                )
+            normalized.append(dict(entry))
+        return normalized
 
 
 def compare_model_to_market_odds(
