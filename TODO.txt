@@ -57,12 +57,25 @@ and then extrapolate off that with specific "current events" related modifiers.
   1. Compile a list of available FOMC press conference and earnings call transcript sources with download links and licensing notes.
   2. Prototype PDF text extraction on 2–3 transcripts to finalize preprocessing heuristics and segmentation strategy.
   3. Define the metadata schema (columns, data types, validation rules) and share with PM2/PM3 for feedback.
+  4. Publish a lightweight data dictionary describing each metadata field, expected domain, and validation rule so downstream teams can self-serve.
 - **PM2**
   1. Set up the experiment tracking environment (select tool, create template config, define metrics).
   2. Draft baseline feature pipeline code structure (vectorizer, scaler, model wrapper) using synthetic data placeholders.
   3. Collaborate with PM1 to review sample labeled segments and confirm target labeling conventions.
+  4. Schedule a calibration dry run once PM1 ships the first labeled dataset to validate the end-to-end evaluation script.
 - **PM3**
   1. Identify candidate current-event datasets (economic calendars, market sentiment feeds) and document access methods.
   2. Outline the inference workflow (inputs, processing steps, outputs) and gather requirements for CLI/REST interface.
   3. Define monitoring KPIs (prediction drift, calibration decay) and propose alert thresholds.
+  4. Draft a deployment readiness checklist (logging, rollback plan, on-call rota) aligned with the monitoring playbook.
+
+### NEAR-TERM PRIORITIES (NEXT 2 WEEKS)
+- Finalize the metadata schema review loop between PM1 and PM2; incorporate any feedback into the shared data dictionary.
+- Lock in the experiment tracking stack (decision between MLflow vs. W&B) and create starter templates for each experiment type.
+- Deliver a prototype inference CLI with mocked model outputs so PM3 can test data plumbing with current-event modifiers.
+
+### OPEN QUESTIONS & RISKS
+- Do we need to support non-PDF transcript formats (e.g., HTML press releases) in the ingestion tooling, and who owns the conversion?
+- What is the plan for handling transcripts with multiple speakers talking over one another—should segments be merged or tagged separately?
+- How frequently should current-event features be refreshed (daily vs. intra-day), and what cost constraints exist for premium data feeds?
 
