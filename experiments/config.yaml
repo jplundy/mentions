@@ -1,4 +1,4 @@
-dataset_path: /private/var/folders/p3/svv3_rhn7mlfyw2x0bgcq_k40000gn/T/pytest-of-justin/pytest-0/test_prepare_features_and_targ1/dummy.csv
+dataset_path: /tmp/pytest-of-root/pytest-1/test_prepare_features_and_targ1/dummy.csv
 target_column: label
 news_features_path: null
 feature:
