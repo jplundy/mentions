@@ -64,6 +64,19 @@ class BaselineMetric:
     brier: Optional[float]
     accuracy: Optional[float]
     average_precision: Optional[float]
+    f1: Optional[float] = None
+    roc_auc: Optional[float] = None
+    precision: Optional[float] = None
+    recall: Optional[float] = None
+
+    @property
+    def health_status(self) -> str:
+        """Return 'degenerate', 'warning', or 'healthy' based on aggregate metrics."""
+        if self.f1 is not None and self.f1 == 0.0:
+            return "degenerate"
+        if self.roc_auc is None:
+            return "warning"
+        return "healthy"
 
     def as_dict(self) -> Dict[str, object]:
         return {
@@ -78,6 +91,11 @@ class BaselineMetric:
             "brier": self.brier,
             "accuracy": self.accuracy,
             "average_precision": self.average_precision,
+            "f1": self.f1,
+            "roc_auc": self.roc_auc,
+            "precision": self.precision,
+            "recall": self.recall,
+            "health_status": self.health_status,
         }
 
 
@@ -208,6 +226,10 @@ def _load_baseline_metric(run_dir: Path) -> Optional[BaselineMetric]:
         brier=_clean_metric(raw_metrics.get("brier")),
         accuracy=_clean_metric(raw_metrics.get("accuracy")),
         average_precision=_clean_metric(raw_metrics.get("average_precision")),
+        f1=_clean_metric(raw_metrics.get("f1")),
+        roc_auc=_clean_metric(raw_metrics.get("roc_auc")),
+        precision=_clean_metric(raw_metrics.get("precision")),
+        recall=_clean_metric(raw_metrics.get("recall")),
     )
 
 
@@ -238,6 +260,27 @@ def _humanize_target_column(
     if label.startswith("target__"):
         label = label[len("target__") :]
     return label.replace("_", " ")
+
+
+def load_fold_metrics(
+    experiment_name: str,
+    experiments_dir: Path = EXPERIMENTS_DIR,
+) -> List[Dict[str, object]]:
+    """Load per-fold metric dicts from an experiment directory."""
+
+    run_dir = experiments_dir / experiment_name
+    if not run_dir.is_dir():
+        return []
+    fold_files = sorted(run_dir.glob("fold_*_metrics.json"))
+    folds: List[Dict[str, object]] = []
+    for fold_path in fold_files:
+        try:
+            data = json.loads(fold_path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                folds.append(data)
+        except (OSError, json.JSONDecodeError) as exc:
+            LOGGER.warning("Failed to load fold metrics %s: %s", fold_path, exc)
+    return folds
 
 
 def _resolve_manifest_path(dataset_path: Path) -> Optional[Path]:
@@ -446,6 +489,27 @@ def build_dash_app() -> Dash:
                         "inventory. Values summarize how historical models performed for each "
                         "tracked phrase."
                     ),
+                    html.Div(id="model-health-alerts"),
+                    html.Div(
+                        className="metric-selector-row",
+                        children=[
+                            html.Label("Primary metric"),
+                            dcc.Dropdown(
+                                id="metric-selector",
+                                options=[
+                                    {"label": "F1 Score", "value": "f1"},
+                                    {"label": "Average Precision (AP)", "value": "average_precision"},
+                                    {"label": "ROC AUC", "value": "roc_auc"},
+                                    {"label": "Accuracy", "value": "accuracy"},
+                                    {"label": "Log Loss (lower = better)", "value": "log_loss"},
+                                    {"label": "Brier Score (lower = better)", "value": "brier"},
+                                ],
+                                value="f1",
+                                clearable=False,
+                                style={"width": "320px"},
+                            ),
+                        ],
+                    ),
                     dcc.Graph(
                         id="baseline-performance-graph",
                         config={"displaylogo": False},
@@ -458,6 +522,34 @@ def build_dash_app() -> Dash:
                         style_table={"overflowX": "auto"},
                         style_cell={"textAlign": "left", "padding": "0.5rem"},
                         style_header={"fontWeight": "bold"},
+                    ),
+                    html.Div(
+                        className="fold-card",
+                        children=[
+                            html.H3("Fold-level metric distribution"),
+                            html.P(
+                                "Per-fold metrics reveal variance and stability across "
+                                "validation splits. High variance or NaN values indicate "
+                                "data quality or class-imbalance issues."
+                            ),
+                            html.Div(
+                                children=[
+                                    html.Label("Experiment"),
+                                    dcc.Dropdown(
+                                        id="fold-experiment-selector",
+                                        options=[],
+                                        value=None,
+                                        clearable=True,
+                                        placeholder="Select an experiment to inspect folds",
+                                        style={"width": "400px"},
+                                    ),
+                                ],
+                            ),
+                            dcc.Graph(
+                                id="fold-distribution-graph",
+                                config={"displaylogo": False},
+                            ),
+                        ],
                     ),
                 ],
             ),
@@ -529,14 +621,88 @@ def build_dash_app() -> Dash:
             target_children,
         )
 
+    # Metric labels used in chart titles and axis labels.
+    _METRIC_LABELS: Dict[str, str] = {
+        "f1": "F1 Score",
+        "average_precision": "Average Precision",
+        "roc_auc": "ROC AUC",
+        "accuracy": "Accuracy",
+        "log_loss": "Log Loss",
+        "brier": "Brier Score",
+    }
+    _PCT_METRICS = {"f1", "average_precision", "roc_auc", "accuracy"}
+
+    @app.callback(
+        Output("model-health-alerts", "children"),
+        Input("inventory-store", "data"),
+        prevent_initial_call=False,
+    )
+    def update_health_alerts(store_data: Optional[Dict[str, object]]):
+        if not store_data:
+            return []
+        baseline_metrics = store_data.get("baseline_metrics") or []
+        degenerate = [m for m in baseline_metrics if m.get("health_status") == "degenerate"]
+        warning = [m for m in baseline_metrics if m.get("health_status") == "warning"]
+        alerts = []
+        if degenerate:
+            names = ", ".join(sorted({m.get("experiment", "?") for m in degenerate}))
+            alerts.append(
+                html.Div(
+                    [
+                        html.Strong("Degenerate model detected: "),
+                        html.Span(
+                            f"F1=0 in {names}. The model predicts only the majority class. "
+                            "Check class imbalance and decision threshold."
+                        ),
+                    ],
+                    style={
+                        "background": "#fee2e2",
+                        "border": "1px solid #f87171",
+                        "borderRadius": "4px",
+                        "padding": "0.75rem 1rem",
+                        "marginBottom": "0.5rem",
+                        "color": "#7f1d1d",
+                    },
+                )
+            )
+        if warning:
+            names = ", ".join(sorted({m.get("experiment", "?") for m in warning}))
+            alerts.append(
+                html.Div(
+                    [
+                        html.Strong("ROC AUC undefined: "),
+                        html.Span(
+                            f"NaN ROC AUC in {names}. Some validation folds contained "
+                            "only one class. Consider increasing minimum_train_events."
+                        ),
+                    ],
+                    style={
+                        "background": "#fef9c3",
+                        "border": "1px solid #fbbf24",
+                        "borderRadius": "4px",
+                        "padding": "0.75rem 1rem",
+                        "marginBottom": "0.5rem",
+                        "color": "#713f12",
+                    },
+                )
+            )
+        return alerts
+
     @app.callback(
         Output("baseline-performance-graph", "figure"),
         Output("baseline-metrics-table", "data"),
         Output("baseline-metrics-table", "columns"),
         Input("inventory-store", "data"),
+        Input("metric-selector", "value"),
         prevent_initial_call=False,
     )
-    def update_baseline_section(store_data: Optional[Dict[str, object]]):
+    def update_baseline_section(
+        store_data: Optional[Dict[str, object]],
+        selected_metric: Optional[str],
+    ):
+        metric_key = selected_metric or "f1"
+        metric_label = _METRIC_LABELS.get(metric_key, metric_key)
+
         if not store_data:
             return _empty_baseline_figure("Select a dataset to load baseline experiments."), [], []
 
@@ -547,77 +713,180 @@ def build_dash_app() -> Dash:
             ), [], []
 
         baseline_df = pd.DataFrame(baseline_metrics)
-        metric_df = baseline_df.dropna(subset=["accuracy"]).copy()
-        for column in ("accuracy", "average_precision", "log_loss", "brier"):
-            if column in metric_df.columns:
-                metric_df[column] = pd.to_numeric(metric_df[column], errors="coerce")
+        all_numeric = list(_METRIC_LABELS.keys())
+        for column in all_numeric:
+            if column in baseline_df.columns:
+                baseline_df[column] = pd.to_numeric(baseline_df[column], errors="coerce")
+        metric_df = baseline_df.dropna(subset=[metric_key]).copy() if metric_key in baseline_df.columns else pd.DataFrame()
         metric_df.sort_values(["phrase", "experiment"], inplace=True)
 
         if metric_df.empty:
             figure = _empty_baseline_figure(
-                "Baseline experiments did not report accuracy metrics."
+                f"No experiments reported {metric_label}."
             )
         else:
+            use_pct = metric_key in _PCT_METRICS
             figure = px.bar(
                 metric_df,
                 x="phrase",
-                y="accuracy",
+                y=metric_key,
                 color="experiment",
-                title="Baseline accuracy by tracked phrase",
+                title=f"{metric_label} by tracked phrase",
                 labels={
                     "phrase": "Tracked phrase",
-                    "accuracy": "Accuracy",
+                    metric_key: metric_label,
                     "experiment": "Experiment",
                 },
             )
             figure.update_layout(
                 template="plotly_white",
-                yaxis_tickformat=".0%",
+                yaxis_tickformat=".0%" if use_pct else ".3f",
                 legend_title_text="Experiment",
             )
-            customdata = metric_df[
-                ["experiment", "average_precision", "log_loss", "brier"]
-            ].to_numpy()
+            hover_cols = ["experiment", "f1", "average_precision", "accuracy", "log_loss"]
+            available = [c for c in hover_cols if c in metric_df.columns]
+            customdata = metric_df[available].to_numpy()
+            fmt = ":.2%" if use_pct else ":.3f"
             figure.update_traces(
                 customdata=customdata,
                 hovertemplate=(
-                    "<b>%{x}</b><br>"
-                    "Experiment=%{customdata[0]}<br>"
-                    "Accuracy=%{y:.2%}<br>"
-                    "Average precision=%{customdata[1]:.2%}<br>"
-                    "Log loss=%{customdata[2]:.3f}<br>"
-                    "Brier=%{customdata[3]:.3f}<extra></extra>"
+                    f"<b>%{{x}}</b><br>"
+                    f"Experiment=%{{customdata[0]}}<br>"
+                    f"{metric_label}=%{{y{fmt}}}<br>"
+                    f"F1=%{{customdata[1]:.3f}}<br>"
+                    f"Avg Precision=%{{customdata[2]:.3f}}<br>"
+                    f"Accuracy=%{{customdata[3]:.2%}}<br>"
+                    f"Log Loss=%{{customdata[4]:.3f}}<extra></extra>"
                 ),
             )
 
         table_rows: List[Dict[str, object]] = []
         for metric in baseline_metrics:
+            status = metric.get("health_status", "")
+            status_icon = {"degenerate": "DEGENERATE", "warning": "WARNING", "healthy": "OK"}.get(status, "—")
             row = {
+                "health": status_icon,
                 "phrase": metric.get("phrase"),
                 "experiment": metric.get("experiment"),
                 "dataset_version": metric.get("dataset_version") or "—",
-                "generated_at": metric.get("generated_at") or "—",
                 "num_rows": metric.get("num_rows") if metric.get("num_rows") is not None else "—",
-                "accuracy": _format_percent(metric.get("accuracy")),
+                "f1": _format_score(metric.get("f1")),
+                "precision": _format_score(metric.get("precision")),
+                "recall": _format_score(metric.get("recall")),
                 "average_precision": _format_percent(metric.get("average_precision")),
+                "roc_auc": _format_score(metric.get("roc_auc")),
+                "accuracy": _format_percent(metric.get("accuracy")),
                 "log_loss": _format_score(metric.get("log_loss")),
                 "brier": _format_score(metric.get("brier")),
             }
             table_rows.append(row)
 
         columns = [
+            {"name": "Health", "id": "health"},
             {"name": "Tracked phrase", "id": "phrase"},
             {"name": "Experiment", "id": "experiment"},
             {"name": "Dataset version", "id": "dataset_version"},
-            {"name": "Generated at", "id": "generated_at"},
             {"name": "Rows", "id": "num_rows"},
+            {"name": "F1", "id": "f1"},
+            {"name": "Precision", "id": "precision"},
+            {"name": "Recall", "id": "recall"},
+            {"name": "Avg Precision", "id": "average_precision"},
+            {"name": "ROC AUC", "id": "roc_auc"},
             {"name": "Accuracy", "id": "accuracy"},
-            {"name": "Avg precision", "id": "average_precision"},
-            {"name": "Log loss", "id": "log_loss"},
+            {"name": "Log Loss", "id": "log_loss"},
             {"name": "Brier", "id": "brier"},
         ]
 
         return figure, table_rows, columns
+
+    @app.callback(
+        Output("fold-experiment-selector", "options"),
+        Output("fold-experiment-selector", "value"),
+        Input("inventory-store", "data"),
+        prevent_initial_call=False,
+    )
+    def update_fold_experiment_selector(store_data: Optional[Dict[str, object]]):
+        if not store_data:
+            return [], None
+        baseline_metrics = store_data.get("baseline_metrics") or []
+        seen: Dict[str, str] = {}
+        for m in baseline_metrics:
+            exp = m.get("experiment")
+            phrase = m.get("phrase", exp)
+            if exp and exp not in seen:
+                seen[exp] = f"{exp} ({phrase})"
+        options = [{"label": label, "value": exp} for exp, label in seen.items()]
+        default = options[0]["value"] if options else None
+        return options, default
+
+    @app.callback(
+        Output("fold-distribution-graph", "figure"),
+        Input("fold-experiment-selector", "value"),
+        Input("metric-selector", "value"),
+        prevent_initial_call=False,
+    )
+    def update_fold_distribution(
+        experiment_name: Optional[str],
+        selected_metric: Optional[str],
+    ):
+        metric_key = selected_metric or "f1"
+        metric_label = _METRIC_LABELS.get(metric_key, metric_key)
+        use_pct = metric_key in _PCT_METRICS
+
+        empty_fig = go.Figure()
+        empty_fig.update_layout(
+            title="Select an experiment to view fold-level metrics",
+            template="plotly_white",
+        )
+
+        if not experiment_name:
+            return empty_fig
+
+        fold_data = load_fold_metrics(experiment_name)
+        if not fold_data:
+            empty_fig.update_layout(
+                title=f"No fold metrics found for {experiment_name}"
+            )
+            return empty_fig
+
+        rows = []
+        for idx, fold in enumerate(fold_data):
+            for key, val in fold.items():
+                if isinstance(val, (int, float)) and not (isinstance(val, float) and math.isnan(val)):
+                    rows.append({"fold": idx, "metric": key, "value": val})
+
+        if not rows:
+            empty_fig.update_layout(title=f"All fold metrics are NaN for {experiment_name}")
+            return empty_fig
+
+        fold_df = pd.DataFrame(rows)
+        metric_subset = fold_df[fold_df["metric"] == metric_key]
+
+        if metric_subset.empty:
+            empty_fig.update_layout(
+                title=f"{metric_label} not available for {experiment_name}"
+            )
+            return empty_fig
+
+        fig = go.Figure()
+        fig.add_trace(
+            go.Box(
+                y=metric_subset["value"].tolist(),
+                name=metric_label,
+                boxpoints="all",
+                jitter=0.3,
+                pointpos=-1.8,
+                marker_color="#4f86c6",
+            )
+        )
+        fig.update_layout(
+            title=f"{metric_label} across {len(metric_subset)} folds — {experiment_name}",
+            template="plotly_white",
+            yaxis_title=metric_label,
+            yaxis_tickformat=".0%" if use_pct else ".3f",
+            showlegend=False,
+        )
+        return fig
 
     @app.callback(
         Output("inventory-timeline", "figure"),

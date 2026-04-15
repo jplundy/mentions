@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+import math
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
 import json
+
+LOGGER = logging.getLogger(__name__)
 
 try:
     import mlflow  # type: ignore
@@ -65,6 +69,32 @@ class ExperimentTracker:
             mlflow.log_dict(result.calibration, "calibration.json")
             mlflow.log_dict(result.feature_importances, "feature_importances.json")
             mlflow.end_run()
+        self._warn_on_degenerate_metrics(result.metrics)
+
+    def _warn_on_degenerate_metrics(self, agg_metrics: Dict[str, float]) -> None:
+        """Emit actionable warnings when aggregate metrics signal a broken model."""
+
+        exp_name = self.output_dir.name
+        f1 = agg_metrics.get("f1")
+        roc_auc = agg_metrics.get("roc_auc")
+
+        if f1 is not None and f1 == 0.0:
+            LOGGER.warning(
+                "[%s] DEGENERATE MODEL: aggregate F1=0.0. The model predicts only the "
+                "majority class. Likely causes: severe class imbalance with a hard 0.5 "
+                "threshold, or all validation folds contain only one class. "
+                "Fix: tune the decision threshold, use class_weight='balanced', or "
+                "ensure each validation fold contains positive examples.",
+                exp_name,
+            )
+
+        if roc_auc is not None and math.isnan(roc_auc):
+            LOGGER.warning(
+                "[%s] ROC AUC is NaN: one or more validation folds contained only a "
+                "single class. Consider increasing minimum_train_events or switching "
+                "to a validation strategy that guarantees both classes per fold.",
+                exp_name,
+            )
 
     def log_artifact(self, name: str, path: Path) -> None:
         timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")

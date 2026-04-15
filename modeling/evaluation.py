@@ -31,10 +31,15 @@ def compute_classification_metrics(y_true, y_prob) -> Dict[str, float]:
     """Compute classification metrics for probabilistic models."""
 
     y_pred = (y_prob >= 0.5).astype(int)
+    try:
+        roc_auc = metrics.roc_auc_score(y_true, y_prob)
+    except ValueError:
+        # Single-class validation fold — metric is undefined.
+        roc_auc = float("nan")
     return {
         "log_loss": metrics.log_loss(y_true, y_prob, labels=[0, 1]),
         "brier": metrics.brier_score_loss(y_true, y_prob),
-        "roc_auc": metrics.roc_auc_score(y_true, y_prob),
+        "roc_auc": roc_auc,
         "average_precision": metrics.average_precision_score(y_true, y_prob),
         "f1": metrics.f1_score(y_true, y_pred),
         "precision": metrics.precision_score(y_true, y_pred, zero_division=0),
