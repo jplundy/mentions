@@ -66,6 +66,16 @@ class ExperimentTracker:
             mlflow.log_dict(result.feature_importances, "feature_importances.json")
             mlflow.end_run()
 
+    def log_threshold(self, threshold: float) -> None:
+        """Persist the optimal decision threshold alongside model artifacts."""
+
+        threshold_path = self.output_dir / "optimal_threshold.json"
+        threshold_path.write_text(
+            json.dumps({"optimal_threshold": threshold}, indent=2), encoding="utf-8"
+        )
+        if self.run_id and mlflow is not None:
+            mlflow.log_param("optimal_threshold", threshold)
+
     def log_artifact(self, name: str, path: Path) -> None:
         timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
         artifact_path = self.output_dir / f"{timestamp}_{name}{path.suffix}"

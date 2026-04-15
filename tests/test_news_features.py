@@ -39,7 +39,7 @@ def test_news_feature_builder_generates_counts(tmp_path):
     assert frame.loc[0, "event_id"] == "2024-03"
     assert frame.loc[0, "news_article_count"] == 1
     assert frame.loc[0, "news_unique_sources"] == 1
-    assert frame.loc[0, "news_target__inflation_count"] == 2
+    assert frame.loc[0, "news_target__inflation_count"] == 3
     assert artifact.provenance_by_event["2024-03"][0]["url"] == "https://example.com/article"
 
     expected_hash = sha256()

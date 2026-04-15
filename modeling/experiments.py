@@ -15,8 +15,10 @@ from .dataset import DatasetBundle, DatasetLoader
 from .evaluation import (
     ExperimentResult,
     FoldResult,
+    aggregate_optimal_threshold,
     compute_classification_metrics,
     extract_feature_importances,
+    optimize_threshold,
     summarize_metrics,
 )
 from .models import build_estimator
@@ -70,10 +72,11 @@ class BaselineExperiment:
             fold_results.append(metrics)
 
         aggregate_metrics = summarize_metrics(fold_results)
+        optimal_threshold = aggregate_optimal_threshold(fold_results)
         calibration_summary = {}
         feature_importances: Dict[str, float] = {}
 
-        self._train_final_pipeline(X, y)
+        self._train_final_pipeline(X, y, optimal_threshold=optimal_threshold)
 
         if self.final_pipeline is not None and self.calibration_result is not None:
             calibration_summary = {
@@ -88,6 +91,7 @@ class BaselineExperiment:
             folds=fold_results,
             calibration=calibration_summary,
             feature_importances=feature_importances,
+            optimal_threshold=optimal_threshold,
         )
         self.tracker.log_result(result)
         return result
@@ -110,8 +114,18 @@ class BaselineExperiment:
 
         pipeline.fit(X_train, y_train)
         y_prob = pipeline.predict_proba(X_valid)[:, 1]
-        metrics = compute_classification_metrics(y_valid, y_prob)
-        fold_result = FoldResult(fold=fold_idx, metrics=metrics)
+
+        has_positives = int(y_valid.sum()) > 0
+        optimal_threshold, _ = optimize_threshold(y_valid, y_prob)
+        fold_metrics = compute_classification_metrics(
+            y_valid, y_prob, threshold=optimal_threshold
+        )
+        fold_result = FoldResult(
+            fold=fold_idx,
+            metrics=fold_metrics,
+            optimal_threshold=optimal_threshold,
+            has_positives=has_positives,
+        )
         self.fold_artifacts.append(FoldArtifacts(pipeline=pipeline, metrics=fold_result))
 
         self.tracker.log_fold(fold_result)
@@ -133,7 +147,9 @@ class BaselineExperiment:
             )
         return df, target.astype(int)
 
-    def _train_final_pipeline(self, X: pd.DataFrame, y: pd.Series) -> None:
+    def _train_final_pipeline(
+        self, X: pd.DataFrame, y: pd.Series, optimal_threshold: float = 0.5
+    ) -> None:
         """Train the final calibrated pipeline on the full dataset."""
 
         estimator = build_estimator(self.config.model)
@@ -147,10 +163,10 @@ class BaselineExperiment:
         pipeline.named_steps["model"] = calibrated_model
         self.final_pipeline = pipeline
         self.calibration_result = calibration_result
-        self._persist_artifacts()
+        self._persist_artifacts(optimal_threshold=optimal_threshold)
 
-    def _persist_artifacts(self) -> None:
-        """Persist trained pipeline and vectorizers for downstream teams."""
+    def _persist_artifacts(self, optimal_threshold: float = 0.5) -> None:
+        """Persist trained pipeline, threshold, and vectorizers for downstream teams."""
 
         if self.final_pipeline is None:
             return
@@ -160,6 +176,7 @@ class BaselineExperiment:
         model_path = output_dir / "baseline_pipeline.joblib"
         joblib.dump(self.final_pipeline, model_path)
         self.tracker.log_artifact("pipeline", model_path)
+        self.tracker.log_threshold(optimal_threshold)
 
     def _extract_feature_importances(self, pipeline: Pipeline) -> Dict[str, float]:
         """Extract feature names from the trained pipeline and compute importances."""
