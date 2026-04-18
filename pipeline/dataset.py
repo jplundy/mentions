@@ -60,6 +60,7 @@ class DatasetPublisher:
         mapping = {}
         seen_columns = set()
         patterns = {}
+        prefilters: Dict[str, Set[str]] = {}
         for word in self.target_words:
             column = self._target_column_name(word)
             if column in seen_columns:
@@ -69,8 +70,18 @@ class DatasetPublisher:
             mapping[word] = column
             seen_columns.add(column)
             patterns[word] = _compile_target_pattern(word)
+            # Build a set of first-token substrings (one per slash-alternative).
+            # The regex always includes the base word as a variant, so if no first
+            # token appears in the lowercased text the full regex cannot match.
+            first_tokens: Set[str] = set()
+            for alt in _split_alternatives(word):
+                tokens = _tokenize_phrase(alt)
+                if tokens:
+                    first_tokens.add(tokens[0].lower())
+            prefilters[word] = first_tokens
         self._target_mapping = mapping
         self._target_patterns = patterns
+        self._target_prefilters = prefilters
 
     def _segment_rows(
         self, record: TranscriptRecord, segments: Iterable[Segment]
@@ -83,8 +94,11 @@ class DatasetPublisher:
             text_lower = segment.text.lower()
             target_hits = {}
             for original, lower in target_pairs:
+                prefilter = self._target_prefilters.get(original, set())
+                if prefilter and not any(ft in text_lower for ft in prefilter):
+                    target_hits[self._target_mapping[original]] = False
+                    continue
                 pattern = self._target_patterns.get(original)
-                matched = False
                 if pattern is not None:
                     matched = bool(pattern.search(segment.text))
                 else:
