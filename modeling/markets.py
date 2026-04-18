@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Iterable, Mapping, Optional, Sequence
+from time import monotonic
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Mapping, Optional, Sequence, Tuple
 
 try:  # pragma: no cover - optional dependency is environment specific
     import requests as _requests  # type: ignore[import-not-found]
@@ -14,6 +17,8 @@ if TYPE_CHECKING:  # pragma: no cover - typing helper
     from requests import Session as SessionType
 else:  # pragma: no cover - runtime alias when requests is absent
     SessionType = Any
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_API_BASE = "https://trading-api.kalshi.com/trade-api/v2"
 CANDLESTICK_INTERVALS: Sequence[int] = (1, 60, 1440)
@@ -51,6 +56,8 @@ class MarketComparison:
 class KalshiClient:
     """Lightweight Kalshi API client focused on public market data."""
 
+    _DEFAULT_CACHE_TTL: float = 60.0
+
     def __init__(
         self,
         *,
@@ -60,6 +67,7 @@ class KalshiClient:
         session: Optional[SessionType] = None,
         base_url: str = DEFAULT_API_BASE,
         timeout: float = 10.0,
+        cache_ttl: float = _DEFAULT_CACHE_TTL,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.session = session or self._build_default_session()
@@ -67,6 +75,8 @@ class KalshiClient:
             raise TypeError("HTTP session must expose a 'headers' attribute")
         self.session.headers.setdefault("Accept", "application/json")
         self.timeout = timeout
+        self._cache_ttl = cache_ttl
+        self._market_cache: Dict[str, Tuple[float, Mapping[str, Any]]] = {}
 
         if auth_token is not None:
             self._set_auth_header(auth_token)
@@ -117,6 +127,13 @@ class KalshiClient:
     def get_market(self, ticker: str) -> Mapping[str, Any]:
         """Return raw market information for the given ticker."""
 
+        if self._cache_ttl > 0:
+            cached = self._market_cache.get(ticker)
+            if cached is not None:
+                ts, data = cached
+                if monotonic() - ts < self._cache_ttl:
+                    return data
+
         response = self._request("GET", f"/markets/{ticker}")
         try:
             data = response.json()
@@ -137,6 +154,9 @@ class KalshiClient:
             raise KalshiAPIError(
                 f"Kalshi market payload for {ticker!r} was not a mapping"
             )
+
+        if self._cache_ttl > 0:
+            self._market_cache[ticker] = (monotonic(), market)
         return market
 
     def get_market_probability(self, ticker: str) -> float:
@@ -250,6 +270,31 @@ class KalshiClient:
                 )
             normalized.append(dict(entry))
         return normalized
+
+
+    def get_market_probabilities_batch(
+        self,
+        tickers: Iterable[str],
+        *,
+        max_workers: int = 4,
+    ) -> Dict[str, float]:
+        """Fetch probabilities for multiple tickers concurrently.
+
+        Failures for individual tickers are logged as warnings and omitted from
+        the returned dict rather than aborting the whole batch.
+        """
+
+        tickers_list = list(tickers)
+        results: Dict[str, float] = {}
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(self.get_market_probability, t): t for t in tickers_list}
+            for future in as_completed(futures):
+                ticker = futures[future]
+                try:
+                    results[ticker] = future.result()
+                except KalshiAPIError as exc:
+                    logger.warning("Failed to fetch market probability for %s: %s", ticker, exc)
+        return results
 
 
 def compare_model_to_market_odds(
